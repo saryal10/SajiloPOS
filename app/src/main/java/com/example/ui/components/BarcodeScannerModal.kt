@@ -82,7 +82,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.ui.theme.PosSlate900
+import com.example.ui.theme.AccentAmber
+import com.example.ui.theme.NightLine
+import com.example.ui.theme.PosSpace
+import com.example.ui.theme.PosType
+import com.example.ui.theme.ScannerMuted
+import com.example.ui.theme.ScannerSurface
+import com.example.ui.theme.ScannerSurfaceAlt
+import com.example.ui.theme.SuccessGreen
 import com.google.zxing.BinaryBitmap
 import com.google.zxing.MultiFormatReader
 import com.google.zxing.PlanarYUVLuminanceSource
@@ -156,13 +163,13 @@ fun BarcodeScannerModal(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
                 .testTag("barcode_scanner_modal"),
-            color = PosSlate900,
+            color = ScannerSurface,
             tonalElevation = 8.dp
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(18.dp),
+                    .padding(PosSpace.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Header
@@ -189,16 +196,14 @@ fun BarcodeScannerModal(
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
-                                text = "Camera Barcode Scanner",
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 17.sp
+                                text = "Scan a barcode",
+                                style = PosType.titleLarge,
+                                color = Color.White
                             )
                             Text(
-                                text = if (hasCameraPermission) "Live Camera Active" else "Camera Permission Required",
-                                color = if (hasCameraPermission) Color(0xFF00E676) else Color(0xFFFFB74D),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
+                                text = if (hasCameraPermission) "Camera live · align the product inside the frame" else "Camera access needed to scan",
+                                style = PosType.bodySmall,
+                                color = if (hasCameraPermission) SuccessGreen else AccentAmber
                             )
                         }
                     }
@@ -212,7 +217,7 @@ fun BarcodeScannerModal(
                                 Icon(
                                     imageVector = if (flashEnabled) Icons.Default.FlashOn else Icons.Default.FlashlightOff,
                                     contentDescription = "Flashlight",
-                                    tint = if (flashEnabled) Color(0xFFFFD54F) else Color(0xFF94A3B8)
+                                    tint = if (flashEnabled) Color(0xFFFFD54F) else ScannerMuted
                                 )
                             }
                         }
@@ -236,9 +241,9 @@ fun BarcodeScannerModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(230.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF020617))
-                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(14.dp)),
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(ScannerSurfaceAlt)
+                        .border(1.dp, NightLine, RoundedCornerShape(18.dp)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (hasCameraPermission && cameraError == null) {
@@ -343,7 +348,7 @@ fun BarcodeScannerModal(
                             )
                             Text(
                                 text = "Allow camera access to scan barcodes on products",
-                                color = Color(0xFF94A3B8),
+                                color = ScannerMuted,
                                 fontSize = 11.sp,
                                 textAlign = TextAlign.Center
                             )
@@ -365,7 +370,7 @@ fun BarcodeScannerModal(
                             Icon(
                                 imageVector = Icons.Default.VideocamOff,
                                 contentDescription = null,
-                                tint = Color(0xFF94A3B8),
+                                tint = ScannerMuted,
                                 modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
@@ -377,7 +382,7 @@ fun BarcodeScannerModal(
                             )
                             Text(
                                 text = "Use manual input or test presets below",
-                                color = Color(0xFF94A3B8),
+                                color = ScannerMuted,
                                 fontSize = 11.sp
                             )
                         }
@@ -441,7 +446,7 @@ fun BarcodeScannerModal(
                     label = { Text("Or Type Barcode Number") },
                     placeholder = { Text("e.g. 8901234001") },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF94A3B8))
+                        Icon(Icons.Default.Search, contentDescription = null, tint = ScannerMuted)
                     },
                     trailingIcon = {
                         if (manualBarcodeInput.isNotBlank()) {
@@ -479,9 +484,9 @@ fun BarcodeScannerModal(
 
                 // Quick One-Tap Test Presets
                 Text(
-                    text = "Quick Barcode Simulation Triggers:",
-                    color = Color(0xFF94A3B8),
-                    fontSize = 11.sp,
+                    text = "Or try a demo barcode",
+                    style = PosType.labelMedium,
+                    color = ScannerMuted,
                     modifier = Modifier.align(Alignment.Start)
                 )
                 Spacer(modifier = Modifier.height(6.dp))

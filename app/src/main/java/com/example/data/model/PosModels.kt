@@ -1,6 +1,7 @@
 package com.example.data.model
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class IndustryMode(val title: String, val subtitle: String) {
@@ -9,11 +10,16 @@ enum class IndustryMode(val title: String, val subtitle: String) {
     TRANSPORT("Public Transport", "Bus routes & tickets")
 }
 
-enum class PaymentMethod(val displayName: String, val code: String) {
-    CASH("Cash Payment", "CASH"),
-    ESEWA("eSewa Wallet", "ESEWA"),
-    FONEPAY("Fonepay QR", "FONEPAY"),
-    KHALTI("Khalti Wallet", "KHALTI")
+enum class PaymentMethod(val displayName: String, val code: String, val shortLabel: String) {
+    CASH("Cash Payment", "CASH", "Cash"),
+    ESEWA("eSewa Wallet", "ESEWA", "eSewa"),
+    FONEPAY("Fonepay QR", "FONEPAY", "Fonepay"),
+    KHALTI("Khalti Wallet", "KHALTI", "Khalti");
+
+    companion object {
+        fun fromCode(code: String): PaymentMethod =
+            entries.firstOrNull { it.code.equals(code, ignoreCase = true) } ?: CASH
+    }
 }
 
 enum class TableStatus {
@@ -117,4 +123,31 @@ data class BusinessSettings(
     val printerWidth: String = "80mm", // "58mm" or "80mm"
     val currencySymbol: String = "रू",
     val activeIndustry: IndustryMode = IndustryMode.RETAIL
+)
+
+/**
+ * One physical line of a sale. Stored separately from the receipt summary so that
+ * analytics (top sellers, sales velocity, COGS/profit, restock prediction) can be
+ * computed with real SQL aggregations instead of parsing text.
+ */
+@Entity(
+    tableName = "sale_items",
+    indices = [Index("timestamp"), Index("productId")]
+)
+data class SaleLineItem(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val transactionId: Long = 0,
+    val invoiceNumber: String = "",
+    val productId: Long = 0, // 0 for ad-hoc tickets that are not part of the catalog
+    val productName: String,
+    val category: String = "",
+    val quantity: Int,
+    val listPrice: Double,
+    val unitPrice: Double, // after concessions / discounts
+    val lineTotal: Double,
+    val costTotal: Double, // costPrice * qty, used for margin analytics
+    val timestamp: Long = System.currentTimeMillis(),
+    val passengerType: String = "Regular",
+    val notes: String = ""
 )

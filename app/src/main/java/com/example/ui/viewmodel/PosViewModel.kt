@@ -3,7 +3,14 @@ package com.example.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.analytics.AnalyticsEngine
+import com.example.data.analytics.DailyPoint
+import com.example.data.analytics.InsightRange
+import com.example.data.analytics.PaymentSlice
+import com.example.data.analytics.RestockSuggestion
+import com.example.data.analytics.RestockUrgency
 import com.example.data.local.SampleData
+import com.example.data.local.TopItemRow
 import com.example.data.model.BusinessSettings
 import com.example.data.model.CartItem
 import com.example.data.model.IndustryMode
@@ -14,6 +21,7 @@ import com.example.data.model.SaleTransaction
 import com.example.data.model.TableStatus
 import com.example.data.model.TransportRoute
 import com.example.data.repository.PosRepository
+import com.example.ui.util.Format
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -33,6 +42,23 @@ data class PaymentVerificationState(
     val errorMessage: String = "",
     val transactionRef: String = ""
 )
+
+/** Everything the Insights dashboard needs for the selected window. */
+data class InsightsSnapshot(
+    val range: InsightRange = InsightRange.WEEK,
+    val series: List<DailyPoint> = emptyList(),
+    val paymentMix: List<PaymentSlice> = emptyList(),
+    val topItems: List<TopItemRow> = emptyList(),
+    val revenue: Double = 0.0,
+    val orders: Int = 0,
+    val grossProfit: Double = 0.0,
+    val costOfGoods: Double = 0.0,
+    val peakDay: DailyPoint? = null
+) {
+    val averageTicket: Double get() = if (orders > 0) revenue / orders else 0.0
+    val marginPercent: Double get() = if (revenue > 0.0) grossProfit / revenue * 100.0 else 0.0
+    val bestDayTotal: Double get() = peakDay?.total ?: 0.0
+}
 
 class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = PosRepository(application)
@@ -64,6 +90,15 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
 
     val transactions: StateFlow<List<SaleTransaction>> = repository.getAllTransactions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Every catalog item regardless of industry — used by Inventory + Insights. */
+    val allProducts: StateFlow<List<ProductItem>> = repository.getAllProducts()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Stock value at cost price — the merchant's working capital on the shelf. */
+    val inventoryValue: StateFlow<Double> = allProducts
+        .map { products -> products.sumOf { it.costPrice * it.stockQuantity } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     // Cart State
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
@@ -115,6 +150,76 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     private val _userMessage = MutableStateFlow<String?>(null)
     val userMessage: StateFlow<String?> = _userMessage.asStateFlow()
 
+    // -------------------------------------------------------------------------
+    // Insights: sales analytics + predictive restocking
+    // -------------------------------------------------------------------------
+
+    private val _insightRange = MutableStateFlow(InsightRange.WEEK)
+    val insightRange: StateFlow<InsightRange> = _insightRange.asStateFlow()
+
+    val insights: StateFlow<InsightsSnapshot> = _insightRange
+        .flatMapLatest { range ->
+            val since = Format.startOfWindow(range.days)
+            combine(
+                repository.dailySalesSince(since),
+                repository.paymentMixSince(since),
+                repository.topItemsSince(since, TOP_SELLERS_LIMIT),
+                repository.marginSince(since)
+            ) { daily, mix, top, margin ->
+                val series = AnalyticsEngine.buildDailySeries(daily, range.days)
+                val revenue = series.sumOf { it.total }
+                val orders = series.sumOf { it.orders }
+                InsightsSnapshot(
+                    range = range,
+                    series = series,
+                    paymentMix = AnalyticsEngine.buildPaymentMix(mix),
+                    topItems = top,
+                    revenue = revenue,
+                    orders = orders,
+                    grossProfit = margin.revenue - margin.cost,
+                    costOfGoods = margin.cost,
+                    peakDay = series.maxByOrNull { it.total }
+                )
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InsightsSnapshot())
+
+    /**
+     * Sales velocity is always measured over a fixed 14-day window: a one-day
+     * window produces wildly optimistic restock predictions.
+     */
+    private val velocityWindow = repository
+        .salesVelocitySince(Format.startOfWindow(VELOCITY_WINDOW_DAYS))
+
+    val restockSuggestions: StateFlow<List<RestockSuggestion>> =
+        combine(allProducts, velocityWindow) { products, velocity ->
+            AnalyticsEngine.buildRestockSuggestions(
+                products = products,
+                velocity = velocity,
+                windowDays = VELOCITY_WINDOW_DAYS,
+                leadTimeDays = RESTOCK_LEAD_TIME_DAYS
+            )
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Items that will hit zero before the supplier lead time if sales continue. */
+    val projectedStockouts: StateFlow<List<RestockSuggestion>> = restockSuggestions
+        .map { list -> list.filter { it.urgency == RestockUrgency.OUT_OF_STOCK || it.urgency == RestockUrgency.STOCKOUT_SOON } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setInsightRange(range: InsightRange) {
+        _insightRange.value = range
+    }
+
+    /** One-tap restock from the Insights prediction card. */
+    fun applyRestockSuggestion(suggestion: RestockSuggestion) {
+        if (suggestion.suggestedQty <= 0) return
+        viewModelScope.launch {
+            repository.adjustStock(suggestion.productId, suggestion.suggestedQty)
+            _userMessage.value =
+                "Restocked ${suggestion.suggestedQty} ${suggestion.unit} of ${suggestion.name}"
+        }
+    }
+
     init {
         viewModelScope.launch {
             repository.seedSampleDataIfNeeded()
@@ -157,7 +262,6 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             current.add(CartItem(product = product, quantity = quantity, passengerType = passType, notes = notes))
         }
         _cartItems.value = current
-        _userMessage.value = "Added ${product.name} to cart"
     }
 
     fun incrementCartItem(cartItem: CartItem) {
@@ -311,7 +415,7 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             _userMessage.value = "Cart is empty!"
             return
         }
-        _cashTendered.value = grandTotal.toInt().toString()
+        _cashTendered.value = Format.plain(grandTotal, 2)
         _paymentVerificationState.value = PaymentVerificationState()
         _showPaymentDialog.value = true
     }
@@ -484,5 +588,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
             repository.resetCatalogToDefault()
             _userMessage.value = "Sample catalog reloaded"
         }
+    }
+
+    companion object {
+        private const val TOP_SELLERS_LIMIT = 5
+        private const val VELOCITY_WINDOW_DAYS = 14
+        private const val RESTOCK_LEAD_TIME_DAYS = 7
     }
 }

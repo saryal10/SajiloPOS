@@ -1,5 +1,6 @@
 package com.example.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
@@ -7,6 +8,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.example.data.model.ProductItem
+import com.example.data.model.SaleLineItem
 import com.example.data.model.SaleTransaction
 import kotlinx.coroutines.flow.Flow
 
@@ -75,6 +77,89 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions WHERE timestamp >= :sinceTimestamp")
     fun getTransactionCountSince(sinceTimestamp: Long): Flow<Int>
 
+    @Query("SELECT COUNT(*) FROM transactions WHERE invoiceNumber LIKE :prefix || '%'")
+    suspend fun countInvoicesWithPrefix(prefix: String): Int
+
     @Query("DELETE FROM transactions")
     suspend fun clearAllTransactions()
+}
+
+// -----------------------------------------------------------------------------
+// Analytics projections (Phase 2 of the requirement doc)
+// -----------------------------------------------------------------------------
+
+data class DailySalesRow(
+    @ColumnInfo(name = "day") val day: String,
+    @ColumnInfo(name = "total") val total: Double,
+    @ColumnInfo(name = "orders") val orders: Int
+)
+
+data class PaymentMixRow(
+    @ColumnInfo(name = "paymentMethod") val paymentMethod: String,
+    @ColumnInfo(name = "total") val total: Double,
+    @ColumnInfo(name = "orders") val orders: Int
+)
+
+data class TopItemRow(
+    @ColumnInfo(name = "productId") val productId: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "units") val units: Int,
+    @ColumnInfo(name = "revenue") val revenue: Double,
+    @ColumnInfo(name = "cost") val cost: Double
+)
+
+data class ItemVelocityRow(
+    @ColumnInfo(name = "productId") val productId: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "units") val units: Int,
+    @ColumnInfo(name = "lastSoldAt") val lastSoldAt: Long
+)
+
+data class MarginRow(
+    @ColumnInfo(name = "revenue") val revenue: Double,
+    @ColumnInfo(name = "cost") val cost: Double
+)
+
+@Dao
+interface AnalyticsDao {
+
+    @Query(
+        "SELECT strftime('%Y-%m-%d', timestamp / 1000, 'unixepoch', 'localtime') AS day, " +
+            "COALESCE(SUM(grandTotal), 0) AS total, COUNT(*) AS orders " +
+            "FROM transactions WHERE timestamp >= :since GROUP BY day ORDER BY day ASC"
+    )
+    fun dailySalesSince(since: Long): Flow<List<DailySalesRow>>
+
+    @Query(
+        "SELECT paymentMethod, COALESCE(SUM(grandTotal), 0) AS total, COUNT(*) AS orders " +
+            "FROM transactions WHERE timestamp >= :since GROUP BY paymentMethod ORDER BY total DESC"
+    )
+    fun paymentMixSince(since: Long): Flow<List<PaymentMixRow>>
+
+    @Query(
+        "SELECT productId, productName AS name, SUM(quantity) AS units, " +
+            "COALESCE(SUM(lineTotal), 0) AS revenue, COALESCE(SUM(costTotal), 0) AS cost " +
+            "FROM sale_items WHERE timestamp >= :since " +
+            "GROUP BY productId, productName ORDER BY revenue DESC LIMIT :limit"
+    )
+    fun topItemsSince(since: Long, limit: Int): Flow<List<TopItemRow>>
+
+    @Query(
+        "SELECT productId, productName AS name, SUM(quantity) AS units, MAX(timestamp) AS lastSoldAt " +
+            "FROM sale_items WHERE timestamp >= :since AND productId > 0 " +
+            "GROUP BY productId, productName"
+    )
+    fun salesVelocitySince(since: Long): Flow<List<ItemVelocityRow>>
+
+    @Query(
+        "SELECT COALESCE(SUM(lineTotal), 0) AS revenue, COALESCE(SUM(costTotal), 0) AS cost " +
+            "FROM sale_items WHERE timestamp >= :since"
+    )
+    fun marginSince(since: Long): Flow<MarginRow>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLineItems(items: List<SaleLineItem>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLineItem(item: SaleLineItem)
 }

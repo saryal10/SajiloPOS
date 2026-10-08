@@ -3,13 +3,20 @@ package com.example.data.repository
 import android.content.Context
 import android.content.SharedPreferences
 import com.example.data.local.AppDatabase
+import com.example.data.local.AnalyticsDao
+import com.example.data.local.DailySalesRow
+import com.example.data.local.ItemVelocityRow
+import com.example.data.local.MarginRow
+import com.example.data.local.PaymentMixRow
 import com.example.data.local.ProductDao
 import com.example.data.local.SampleData
+import com.example.data.local.TopItemRow
 import com.example.data.local.TransactionDao
 import com.example.data.model.BusinessSettings
 import com.example.data.model.CartItem
 import com.example.data.model.IndustryMode
 import com.example.data.model.ProductItem
+import com.example.data.model.SaleLineItem
 import com.example.data.model.SaleTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -19,12 +26,12 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.random.Random
 
 class PosRepository(context: Context) {
     private val database = AppDatabase.getDatabase(context)
     private val productDao: ProductDao = database.productDao()
     private val transactionDao: TransactionDao = database.transactionDao()
+    private val analyticsDao: AnalyticsDao = database.analyticsDao()
     private val prefs: SharedPreferences = context.getSharedPreferences("sajilo_pos_prefs", Context.MODE_PRIVATE)
 
     private val _settingsFlow = MutableStateFlow(loadSettings())
@@ -129,10 +136,11 @@ class PosRepository(context: Context) {
         cashTendered: Double = 0.0,
         cashChange: Double = 0.0
     ): SaleTransaction = withContext(Dispatchers.IO) {
-        // Generate Invoice Number: INV-YYYYMMDD-XXXX
-        val datePrefix = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
-        val randomSuffix = Random.nextInt(1000, 9999)
-        val invoiceNo = "INV-$datePrefix-$randomSuffix"
+        // Sequential, gap-free invoice numbering per day: INV-YYYYMMDD-0001
+        val today = SimpleDateFormat("yyyyMMdd", Locale.US).format(Date())
+        val prefix = "INV-$today-"
+        val sequence = nextInvoiceSequence(prefix)
+        val invoiceNo = "$prefix$sequence"
 
         // Build itemized summary text
         val summaryBuilder = StringBuilder()
@@ -167,6 +175,28 @@ class PosRepository(context: Context) {
 
         val insertedId = transactionDao.insertTransaction(sale)
 
+        // Persist structured line items: powers analytics, margin and restock predictions.
+        val soldAt = sale.timestamp
+        analyticsDao.insertLineItems(
+            cartItems.map { item ->
+                SaleLineItem(
+                    transactionId = insertedId,
+                    invoiceNumber = invoiceNo,
+                    productId = item.product.id,
+                    productName = item.product.name,
+                    category = item.product.category,
+                    quantity = item.quantity,
+                    listPrice = item.product.price,
+                    unitPrice = item.unitPriceAfterDiscount,
+                    lineTotal = item.itemTotal,
+                    costTotal = item.product.costPrice * item.quantity,
+                    timestamp = soldAt,
+                    passengerType = item.passengerType,
+                    notes = item.notes
+                )
+            }
+        )
+
         // Decrement stock in SQLite for inventory items
         for (item in cartItems) {
             productDao.decrementStock(item.product.id, item.quantity)
@@ -174,6 +204,26 @@ class PosRepository(context: Context) {
 
         sale.copy(id = insertedId)
     }
+
+    private suspend fun nextInvoiceSequence(prefix: String): String {
+        val todayCount = transactionDao.countInvoicesWithPrefix(prefix)
+        return String.format(Locale.US, "%04d", todayCount + 1)
+    }
+
+    // -----------------------------------------------------------------------------
+    // Analytics (Insights tab)
+    // -----------------------------------------------------------------------------
+
+    fun dailySalesSince(since: Long): Flow<List<DailySalesRow>> = analyticsDao.dailySalesSince(since)
+
+    fun paymentMixSince(since: Long): Flow<List<PaymentMixRow>> = analyticsDao.paymentMixSince(since)
+
+    fun topItemsSince(since: Long, limit: Int = 5): Flow<List<TopItemRow>> =
+        analyticsDao.topItemsSince(since, limit)
+
+    fun salesVelocitySince(since: Long): Flow<List<ItemVelocityRow>> = analyticsDao.salesVelocitySince(since)
+
+    fun marginSince(since: Long): Flow<MarginRow> = analyticsDao.marginSince(since)
 
     suspend fun seedSampleDataIfNeeded() = withContext(Dispatchers.IO) {
         val count = productDao.getProductCount()
