@@ -1,18 +1,60 @@
-*.iml
-.gradle
-.kotlin
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+# ---------------------------------------------------------------------------
+# Gradle / build output
+# ---------------------------------------------------------------------------
+.gradle/
+build/
+*/build/
+captures/
+.externalNativeBuild/
+.cxx/
 local.properties
-.env
+.kotlin/
+.kotlin-cache/
+
+# ---------------------------------------------------------------------------
+# Signing material — NEVER commit these
+# ---------------------------------------------------------------------------
+*.jks
+*.keystore
 debug.keystore
+my-upload-key.jks
+keystore.properties
+
+# ---------------------------------------------------------------------------
+# Secrets & local config
+# ---------------------------------------------------------------------------
+.env
+.env.local
+secrets.properties
+# Firebase config is injected by Android Studio / AI Studio at build time.
+# Force-add it with `git add -f` only if you want CI to build with your project.
+google-services.json
+
+# ---------------------------------------------------------------------------
+# IDE
+# ---------------------------------------------------------------------------
+*.iml
+.idea/
+.fleet/
+.kotlin/
+*.iws
+*.ipr
+
+# ---------------------------------------------------------------------------
+# Generated / release artefacts
+# ---------------------------------------------------------------------------
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+output.json
+mapping.txt
+captures/
+
+# ---------------------------------------------------------------------------
+# OS noise
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+*.swp
