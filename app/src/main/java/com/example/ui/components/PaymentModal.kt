@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,48 +18,34 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.CreditCard
-import androidx.compose.material.icons.filled.Money
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Money
+import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.BusinessSettings
 import com.example.data.model.PaymentMethod
-import com.example.ui.theme.ESewaGreen
-import com.example.ui.theme.FonepayRed
-import com.example.ui.theme.KhaltiPurple
-import com.example.ui.theme.PosSlate900
+import com.example.ui.theme.PosSpace
+import com.example.ui.util.Format
+import com.example.ui.theme.PosType
+import com.example.ui.theme.SuccessGreen
 import com.example.ui.viewmodel.PaymentVerificationState
 
 @Composable
@@ -77,181 +64,133 @@ fun PaymentModal(
     onCompleteCashSale: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val symbol = settings.currencySymbol
     val methods = listOf(
         PaymentMethod.CASH,
         PaymentMethod.FONEPAY,
         PaymentMethod.ESEWA,
         PaymentMethod.KHALTI
     )
-    val selectedIndex = methods.indexOf(selectedMethod).coerceAtLeast(0)
 
-    val tenderedNum = cashTendered.toDoubleOrNull() ?: 0.0
-    val changeDue = (tenderedNum - grandTotal).coerceAtLeast(0.0)
+    val tendered = cashTendered.toDoubleOrNull() ?: 0.0
+    val changeDue = (tendered - grandTotal).coerceAtLeast(0.0)
+    val accent = paymentAccent(selectedMethod.code)
+    val locked = verificationState.isVerifying
 
-    val brandColor = when (selectedMethod) {
-        PaymentMethod.CASH -> Color(0xFF2E7D32)
-        PaymentMethod.FONEPAY -> FonepayRed
-        PaymentMethod.ESEWA -> ESewaGreen
-        PaymentMethod.KHALTI -> KhaltiPurple
-    }
-
-    Dialog(onDismissRequest = {
-        if (!verificationState.isVerifying) onDismiss()
-    }) {
+    Dialog(onDismissRequest = { if (!locked) onDismiss() }) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
                 .testTag("payment_modal"),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 10.dp
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(20.dp)
+                    .padding(PosSpace.xl)
             ) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Checkout & Payment",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
+                            text = "Checkout",
+                            style = PosType.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
+                        Spacer(Modifier.height(2.dp))
                         Text(
                             text = settings.businessName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = PosType.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
                         )
                     }
-
-                    IconButton(
+                    SoftIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = "Close",
                         onClick = onDismiss,
-                        enabled = !verificationState.isVerifying,
-                        modifier = Modifier.testTag("payment_modal_close")
-                    ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
-                    }
+                        size = 40.dp,
+                        testTag = "payment_modal_close"
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(Modifier.height(PosSpace.xl))
 
-                // Total Summary Card
-                Card(
+                // Amount due — the single most important element on this screen.
+                PosCard(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    shape = RoundedCornerShape(16.dp)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    borderColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentPadding = PaddingValues(PosSpace.lg)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Amount Due:",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "${settings.currencySymbol} ${"%.2f".format(grandTotal)}",
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-
-                        if (vatAmount > 0 || serviceChargeAmount > 0) {
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Subtotal: ${settings.currencySymbol}${"%.2f".format(subtotal)}",
-                                    fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                if (serviceChargeAmount > 0) {
-                                    Text(
-                                        text = "SC(10%): ${settings.currencySymbol}${"%.2f".format(serviceChargeAmount)}",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                                if (vatAmount > 0) {
-                                    Text(
-                                        text = "VAT(13%): ${settings.currencySymbol}${"%.2f".format(vatAmount)}",
-                                        fontSize = 11.sp,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
+                    Text(
+                        text = "AMOUNT DUE",
+                        style = PosType.overline,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                    )
+                    Spacer(Modifier.height(PosSpace.xs))
+                    Text(
+                        text = Format.money(grandTotal, 2, symbol),
+                        style = PosType.displaySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(Modifier.height(PosSpace.md))
+                    HairlineDivider()
+                    Spacer(Modifier.height(PosSpace.md))
+                    BreakdownLine("Subtotal", Format.money(subtotal, 2, symbol))
+                    if (serviceChargeAmount > 0) {
+                        Spacer(Modifier.height(PosSpace.xxs))
+                        BreakdownLine("Service charge", Format.money(serviceChargeAmount, 2, symbol))
                     }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Payment Method Selector Tabs
-                TabRow(
-                    selectedTabIndex = selectedIndex,
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                ) {
-                    methods.forEachIndexed { index, method ->
-                        Tab(
-                            selected = index == selectedIndex,
-                            onClick = { onSelectMethod(method) },
-                            text = {
-                                Text(
-                                    text = when (method) {
-                                        PaymentMethod.CASH -> "Cash"
-                                        PaymentMethod.FONEPAY -> "Fonepay"
-                                        PaymentMethod.ESEWA -> "eSewa"
-                                        PaymentMethod.KHALTI -> "Khalti"
-                                    },
-                                    fontWeight = if (index == selectedIndex) FontWeight.Bold else FontWeight.Normal,
-                                    fontSize = 12.sp
-                                )
-                            },
-                            modifier = Modifier.testTag("tab_payment_${method.name.lowercase()}")
+                    if (vatAmount > 0) {
+                        Spacer(Modifier.height(PosSpace.xxs))
+                        BreakdownLine(
+                            "VAT (${Format.percent(settings.vatRatePercent)})",
+                            Format.money(vatAmount, 2, symbol)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(PosSpace.xl))
 
-                // Payment Method Content
+                Text(
+                    text = "Payment method",
+                    style = PosType.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(PosSpace.md))
+
+                LazyMethodGrid(
+                    methods = methods,
+                    selected = selectedMethod,
+                    enabled = !locked,
+                    onSelect = onSelectMethod
+                )
+
+                Spacer(Modifier.height(PosSpace.xl))
+
                 when (selectedMethod) {
-                    PaymentMethod.CASH -> {
-                        CashPaymentContent(
-                            grandTotal = grandTotal,
-                            cashTendered = cashTendered,
-                            changeDue = changeDue,
-                            currencySymbol = settings.currencySymbol,
-                            onCashTenderedChange = onCashTenderedChange,
-                            onCompleteCashSale = onCompleteCashSale
-                        )
-                    }
-                    else -> {
-                        DigitalWalletPaymentContent(
-                            method = selectedMethod,
-                            grandTotal = grandTotal,
-                            settings = settings,
-                            brandColor = brandColor,
-                            verificationState = verificationState,
-                            onVerify = onVerifyDigitalPayment
-                        )
-                    }
+                    PaymentMethod.CASH -> CashPaymentPanel(
+                        grandTotal = grandTotal,
+                        cashTendered = cashTendered,
+                        changeDue = changeDue,
+                        currencySymbol = symbol,
+                        onCashTenderedChange = onCashTenderedChange,
+                        onCompleteCashSale = onCompleteCashSale
+                    )
+
+                    else -> DigitalWalletPanel(
+                        method = selectedMethod,
+                        grandTotal = grandTotal,
+                        settings = settings,
+                        accent = accent,
+                        verificationState = verificationState,
+                        onVerify = onVerifyDigitalPayment
+                    )
                 }
             }
         }
@@ -259,7 +198,78 @@ fun PaymentModal(
 }
 
 @Composable
-private fun CashPaymentContent(
+private fun LazyMethodGrid(
+    methods: List<PaymentMethod>,
+    selected: PaymentMethod,
+    enabled: Boolean,
+    onSelect: (PaymentMethod) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(PosSpace.sm)) {
+        methods.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.sm)) {
+                row.forEach { method ->
+                    val isSelected = method == selected
+                    val accent = paymentAccent(method.code)
+                    PosCard(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(18.dp))
+                            .clickable(enabled = enabled) { onSelect(method) }
+                            .testTag("tab_payment_${method.name.lowercase()}"),
+                        containerColor = if (isSelected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface,
+                        borderColor = if (isSelected) accent else MaterialTheme.colorScheme.outlineVariant,
+                        contentPadding = PaddingValues(PosSpace.md)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(accent.copy(alpha = 0.14f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = method.shortLabel.take(1),
+                                    style = PosType.labelMedium,
+                                    color = accent
+                                )
+                            }
+                            Spacer(Modifier.width(PosSpace.sm))
+                            Text(
+                                text = method.shortLabel,
+                                style = PosType.titleSmall,
+                                color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BreakdownLine(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = label,
+            style = PosType.bodySmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = PosType.labelMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun CashPaymentPanel(
     grandTotal: Double,
     cashTendered: String,
     changeDue: Double,
@@ -267,231 +277,223 @@ private fun CashPaymentContent(
     onCashTenderedChange: (String) -> Unit,
     onCompleteCashSale: () -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "Enter Cash Received from Customer:",
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+    val tenderedValue = cashTendered.toDoubleOrNull() ?: 0.0
+    val isShort = tenderedValue > 0 && tenderedValue < grandTotal
 
-        OutlinedTextField(
+    Column {
+        Text(
+            text = "Cash received",
+            style = PosType.titleSmall,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(Modifier.height(PosSpace.md))
+
+        CashInput(
             value = cashTendered,
             onValueChange = onCashTenderedChange,
-            label = { Text("Tendered Cash Amount ($currencySymbol)") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            leadingIcon = {
-                Icon(Icons.Default.Money, contentDescription = null, tint = Color(0xFF2E7D32))
-            },
-            singleLine = true,
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("cash_tendered_input")
+            currencySymbol = currencySymbol
         )
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(Modifier.height(PosSpace.md))
 
-        // Quick Nepali Rupee Notes Chips
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val quickNotes = listOf(
-                "Exact" to grandTotal.toInt(),
-                "+50" to ((grandTotal / 50).toInt() + 1) * 50,
-                "+100" to ((grandTotal / 100).toInt() + 1) * 100,
-                "+500" to 500,
-                "+1000" to 1000
+        // Quick tender chips tuned to Nepali denominations.
+        val chips = remember(grandTotal) {
+            listOf(
+                "Exact" to grandTotal,
+                "+50" to (((grandTotal / 50).toInt() + 1) * 50).toDouble(),
+                "+100" to (((grandTotal / 100).toInt() + 1) * 100).toDouble(),
+                "+500" to 500.0,
+                "+1000" to 1000.0
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.xs)) {
+            chips.forEach { (label, amount) ->
+                SoftPill(
+                    label = if (label == "Exact") "Exact" else Format.money(amount, 0, currencySymbol),
+                    selected = false,
+                    onClick = { onCashTenderedChange(Format.plain(amount, 2)) },
+                    modifier = Modifier.weight(1f),
+                    testTag = "cash_chip_$label"
+                )
+            }
+        }
 
-            quickNotes.forEach { (label, amt) ->
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable { onCashTenderedChange(amt.toString()) }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
+        Spacer(Modifier.height(PosSpace.lg))
+
+        PosCard(
+            modifier = Modifier.fillMaxWidth(),
+            containerColor = if (isShort) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surface,
+            borderColor = if (isShort) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.outlineVariant,
+            contentPadding = PaddingValues(PosSpace.lg)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (label == "Exact") "Exact" else "रू $amt",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                        text = "Change to return",
+                        style = PosType.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = Format.money(changeDue, 2, currencySymbol),
+                        style = PosType.moneyLarge,
+                        color = if (isShort) MaterialTheme.colorScheme.error else SuccessGreen
+                    )
+                }
+                if (isShort) {
+                    Text(
+                        text = "Short by ${Format.money(grandTotal - tenderedValue, 2, currencySymbol)}",
+                        style = PosType.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.End
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(Modifier.height(PosSpace.lg))
 
-        // Change Due Banner
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = if (changeDue > 0) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
-            ),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Change Due to Customer:",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = "$currencySymbol ${"%.2f".format(changeDue)}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2E7D32)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Button(
+        PrimaryButton(
+            text = "Complete cash sale",
+            icon = Icons.Rounded.CheckCircle,
             onClick = onCompleteCashSale,
+            enabled = !isShort,
+            container = SuccessGreen,
+            content = Color.White,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .testTag("complete_cash_sale_button"),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.CheckCircle, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Complete Cash Sale & Print Receipt", fontWeight = FontWeight.Bold)
-        }
+                .testTag("complete_cash_sale_button")
+        )
     }
 }
 
 @Composable
-private fun DigitalWalletPaymentContent(
+private fun CashInput(
+    value: String,
+    onValueChange: (String) -> Unit,
+    currencySymbol: String
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { input -> onValueChange(input.filter { it.isDigit() }) },
+        label = { Text("Amount in NPR", style = PosType.bodySmall) },
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(SuccessGreen.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Money,
+                    contentDescription = null,
+                    tint = SuccessGreen,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        },
+        singleLine = true,
+        shape = RoundedCornerShape(16.dp),
+        textStyle = PosType.moneyMedium,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("cash_tendered_input")
+    )
+}
+
+@Composable
+private fun DigitalWalletPanel(
     method: PaymentMethod,
     grandTotal: Double,
     settings: BusinessSettings,
-    brandColor: Color,
+    accent: Color,
     verificationState: PaymentVerificationState,
     onVerify: () -> Unit
 ) {
-    val qrPayload = "nepalqr://${method.code.lowercase()}?merchant=${settings.panVatNumber}&amount=${"%.2f".format(grandTotal)}&name=${settings.businessName.replace(" ", "_")}"
-    val badgeLabel = when (method) {
-        PaymentMethod.ESEWA -> "eSewa"
-        PaymentMethod.FONEPAY -> "fonepay"
-        PaymentMethod.KHALTI -> "khalti"
-        else -> "QR"
+    val payload = buildString {
+        append("nepalqr://")
+        append(method.name.lowercase())
+        append("?pan=").append(settings.panVatNumber)
+        append("&amt=").append(String.format(java.util.Locale.US, "%.2f", grandTotal))
+        append("&name=").append(settings.businessName.replace(" ", "_"))
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Merchant QR Card
-        Card(
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        PosCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = brandColor.copy(alpha = 0.08f)),
-            border = androidx.compose.foundation.BorderStroke(1.dp, brandColor.copy(alpha = 0.3f)),
-            shape = RoundedCornerShape(16.dp)
+            contentPadding = PaddingValues(PosSpace.xl)
         ) {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Brand pill
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(brandColor)
-                        .padding(horizontal = 14.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "${method.displayName} • Instant QR",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Dynamic QR Code Canvas
                 QrCodeCanvas(
-                    payload = qrPayload,
-                    sizeDp = 180.dp,
-                    centerBadgeText = badgeLabel,
-                    centerBadgeColor = brandColor
+                    payload = payload,
+                    sizeDp = 176.dp,
+                    centerBadgeText = method.shortLabel,
+                    centerBadgeColor = accent
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
+                Spacer(Modifier.height(PosSpace.lg))
                 Text(
-                    text = "Scan to Pay: ${settings.currencySymbol} ${"%.2f".format(grandTotal)}",
-                    fontWeight = FontWeight.ExtraBold,
-                    fontSize = 18.sp,
-                    color = brandColor
+                    text = "Scan to pay",
+                    style = PosType.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(Modifier.height(PosSpace.xxs))
                 Text(
-                    text = "Merchant PAN: ${settings.panVatNumber}",
-                    fontSize = 11.sp,
+                    text = Format.money(grandTotal, 2, settings.currencySymbol),
+                    style = PosType.moneyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(Modifier.height(PosSpace.xs))
+                Text(
+                    text = "PAN ${settings.panVatNumber}",
+                    style = PosType.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(PosSpace.lg))
 
-        // Verification Status Live Progress
         AnimatedVisibility(visible = verificationState.isVerifying || verificationState.isSuccess) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (verificationState.isSuccess) Color(0xFFE8F5E9) else MaterialTheme.colorScheme.surfaceVariant
-                ),
-                shape = RoundedCornerShape(12.dp)
+            PosCard(
+                modifier = Modifier.fillMaxWidth(),
+                containerColor = if (verificationState.isSuccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                borderColor = if (verificationState.isSuccess) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.outlineVariant,
+                contentPadding = PaddingValues(PosSpace.lg)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     if (verificationState.isVerifying) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.5.dp,
-                            color = brandColor
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = accent
                         )
-                    } else if (verificationState.isSuccess) {
+                    } else {
                         Icon(
-                            imageVector = Icons.Default.CheckCircle,
+                            imageVector = Icons.Rounded.CheckCircle,
                             contentDescription = null,
-                            tint = Color(0xFF2E7D32)
+                            tint = SuccessGreen
                         )
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Spacer(Modifier.width(PosSpace.md))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = verificationState.currentStep,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (verificationState.isSuccess) Color(0xFF1B5E20) else MaterialTheme.colorScheme.onSurface
+                            style = PosType.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         if (verificationState.transactionRef.isNotBlank()) {
+                            Spacer(Modifier.height(2.dp))
                             Text(
-                                text = "Ref: ${verificationState.transactionRef}",
-                                fontSize = 10.sp,
-                                fontFamily = FontFamily.Monospace,
+                                text = "Ref ${verificationState.transactionRef}",
+                                style = PosType.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -500,30 +502,27 @@ private fun DigitalWalletPaymentContent(
             }
         }
 
-        // Verify Status Action Button
-        Button(
+        Spacer(Modifier.height(PosSpace.lg))
+
+        PrimaryButton(
+            text = if (verificationState.isVerifying) "Verifying payment…" else "I have paid · verify",
+            icon = if (verificationState.isVerifying) null else Icons.Rounded.Sync,
             onClick = onVerify,
             enabled = !verificationState.isVerifying && !verificationState.isSuccess,
+            container = accent,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
-                .testTag("verify_payment_status_button"),
-            colors = ButtonDefaults.buttonColors(containerColor = brandColor),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            if (verificationState.isVerifying) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text("Polling Payment Status...", fontWeight = FontWeight.Bold)
-            } else {
-                Icon(Icons.Default.Sync, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Verify Payment Status (Simulate 205 OK)", fontWeight = FontWeight.Bold)
-            }
-        }
+                .testTag("verify_payment_status_button")
+        )
+
+        Spacer(Modifier.height(PosSpace.sm))
+
+        Text(
+            text = "The sale is settled and stock is updated only after the gateway confirms the payment.",
+            style = PosType.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

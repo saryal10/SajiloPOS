@@ -2,33 +2,71 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// SajiloPOS Theme Colors
-val PosTealPrimary = Color(0xFF00796B)
-val PosTealDark = Color(0xFF004D40)
-val PosTealLight = Color(0xFF48A999)
+// -----------------------------------------------------------------------------
+// SajiloPOS design tokens — "Himalayan Paper" palette.
+// Light, airy and high-legibility for fast counter use, with a single confident
+// brand green and a warm marigold accent.
+// -----------------------------------------------------------------------------
 
-val PosAmberAccent = Color(0xFFFFB300)
-val PosAmberDark = Color(0xFFC68400)
-val PosAmberLight = Color(0xFFFFE54C)
+// Brand — Himalayan pine green
+val BrandGreen = Color(0xFF0E7C63)
+val BrandGreenDeep = Color(0xFF0A5D4C)
+val BrandGreenSoft = Color(0xFF3E9C85)
+val BrandGreenTint = Color(0xFFE1F1EC)
+val BrandGreenMist = Color(0xFFF1F8F6)
 
-val PosSlate900 = Color(0xFF0F172A)
-val PosSlate800 = Color(0xFF1E293B)
-val PosSlate700 = Color(0xFF334155)
-val PosSlate600 = Color(0xFF475569)
-val PosSlate100 = Color(0xFFF1F5F9)
-val PosSlate50 = Color(0xFFF8FAFC)
+// Accent — marigold / amber (cash, highlights, warnings)
+val AccentAmber = Color(0xFFE9A13B)
+val AccentAmberDeep = Color(0xFFB87614)
+val AccentAmberTint = Color(0xFFFDF2E1)
+val AccentAmberWash = Color(0xFFFEFAF3)
 
-// Digital Wallet Brand Colors (Nepal)
-val ESewaGreen = Color(0xFF60BB46)
-val ESewaDarkGreen = Color(0xFF479E31)
-val FonepayRed = Color(0xFFD32F2F)
-val FonepayDarkRed = Color(0xFF9A0007)
-val KhaltiPurple = Color(0xFF5E35B1)
-val KhaltiDarkPurple = Color(0xFF311B92)
+// Neutrals — cool paper
+val Paper = Color(0xFFF7F9FA)
+val PaperAlt = Color(0xFFEFF3F5)
+val CardWhite = Color(0xFFFFFFFF)
+val LineSubtle = Color(0xFFE7ECEF)
+val LineStrong = Color(0xFFD7E0E5)
+val Ink = Color(0xFF12202B)
+val InkMuted = Color(0xFF63737F)
+val InkFaint = Color(0xFF95A3AE)
 
-// Status & Alert Colors
-val StockNormalGreen = Color(0xFF2E7D32)
-val StockLowOrange = Color(0xFFED6C02)
-val StockCriticalRed = Color(0xFFD32F2F)
-val ThermalPaperBg = Color(0xFFFAFAFA)
-val ThermalReceiptInk = Color(0xFF1F2937)
+// Dark theme neutrals
+val NightPaper = Color(0xFF0D1519)
+val NightSurface = Color(0xFF141F24)
+val NightSurfaceAlt = Color(0xFF1C2A31)
+val NightLine = Color(0xFF27383F)
+val NightInk = Color(0xFFEAF1F4)
+val NightInkMuted = Color(0xFFA3B3BC)
+
+// Status
+val SuccessGreen = Color(0xFF11845A)
+val SuccessTint = Color(0xFFE4F5ED)
+val WarningOrange = Color(0xFFD07C1F)
+val WarningTint = Color(0xFFFDF1E1)
+val DangerRed = Color(0xFFC33A32)
+val DangerTint = Color(0xFFFBEBE9)
+val InfoBlue = Color(0xFF2F6BC4)
+val InfoTint = Color(0xFFEAF1FC)
+val VioletPurple = Color(0xFF6D4AC4)
+val VioletTint = Color(0xFFF0ECFB)
+
+// Digital wallet brand colours (Nepal)
+val ESewaGreen = Color(0xFF5BB13F)
+val FonepayRed = Color(0xFFCC2E2E)
+val KhaltiPurple = Color(0xFF5B36AE)
+
+// Stock / analytics semantic aliases
+val StockNormalGreen = SuccessGreen
+val StockLowOrange = WarningOrange
+val StockCriticalRed = DangerRed
+
+// Scanner (camera viewfinder is always dark, regardless of app theme)
+val ScannerSurface = Color(0xFF0B1418)
+val ScannerSurfaceAlt = Color(0xFF04090C)
+val ScannerMuted = Color(0xFF93A3AC)
+
+// Thermal receipt paper
+val ThermalPaperBg = Color(0xFFFCFDFE)
+val ThermalReceiptInk = Color(0xFF1B2730)
+val ThermalReceiptFaint = Color(0xFF8A99A3)

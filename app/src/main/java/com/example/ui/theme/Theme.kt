@@ -3,6 +3,7 @@ package com.example.ui.theme
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
@@ -11,62 +12,123 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PosTealLight,
-    onPrimary = Color.Black,
-    primaryContainer = PosTealDark,
-    onPrimaryContainer = Color.White,
-    secondary = PosAmberAccent,
-    onSecondary = Color.Black,
-    secondaryContainer = PosAmberDark,
-    onSecondaryContainer = Color.White,
-    background = PosSlate900,
-    surface = PosSlate800,
-    onBackground = Color(0xFFF1F5F9),
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = PosSlate700,
-    onSurfaceVariant = Color(0xFFCBD5E1),
-    error = Color(0xFFEF4444),
-    onError = Color.White
+private val LightColorScheme = lightColorScheme(
+    primary = BrandGreen,
+    onPrimary = Color.White,
+    primaryContainer = BrandGreenTint,
+    onPrimaryContainer = BrandGreenDeep,
+    inversePrimary = BrandGreenSoft,
+
+    secondary = AccentAmberDeep,
+    onSecondary = Color.White,
+    secondaryContainer = AccentAmberTint,
+    onSecondaryContainer = Color(0xFF6B4408),
+
+    tertiary = InfoBlue,
+    onTertiary = Color.White,
+    tertiaryContainer = InfoTint,
+    onTertiaryContainer = Color(0xFF1B3F7A),
+
+    background = Paper,
+    onBackground = Ink,
+    surface = CardWhite,
+    onSurface = Ink,
+    surfaceVariant = PaperAlt,
+    onSurfaceVariant = InkMuted,
+    surfaceTint = BrandGreen,
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFFBFCFD),
+    surfaceContainer = Color(0xFFF4F7F8),
+    surfaceContainerHigh = Color(0xFFEFF4F6),
+    surfaceContainerHighest = PaperAlt,
+    inverseSurface = NightSurface,
+    inverseOnSurface = NightInk,
+
+    outline = LineStrong,
+    outlineVariant = LineSubtle,
+    error = DangerRed,
+    onError = Color.White,
+    errorContainer = DangerTint,
+    onErrorContainer = Color(0xFF7A231D),
+    scrim = Color(0x66101B22)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = PosTealPrimary,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFE0F2F1),
-    onPrimaryContainer = PosTealDark,
-    secondary = PosAmberDark,
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFF8E1),
-    onSecondaryContainer = PosSlate900,
-    background = Color(0xFFF8FAFC),
-    surface = Color.White,
-    onBackground = PosSlate900,
-    onSurface = PosSlate900,
-    surfaceVariant = Color(0xFFF1F5F9),
-    onSurfaceVariant = PosSlate700,
-    error = Color(0xFFDC2626),
-    onError = Color.White
+private val DarkColorScheme = darkColorScheme(
+    primary = Color(0xFF5CC0A5),
+    onPrimary = Color(0xFF00382C),
+    primaryContainer = Color(0xFF0C5344),
+    onPrimaryContainer = Color(0xFFB8EADB),
+    inversePrimary = BrandGreen,
+
+    secondary = Color(0xFFF0B45F),
+    onSecondary = Color(0xFF3D2400),
+    secondaryContainer = Color(0xFF5A3A08),
+    onSecondaryContainer = Color(0xFFFFDDB3),
+
+    tertiary = Color(0xFF9FC1FF),
+    onTertiary = Color(0xFF002E69),
+    tertiaryContainer = Color(0xFF1F4679),
+    onTertiaryContainer = Color(0xFFD7E3FF),
+
+    background = NightPaper,
+    onBackground = NightInk,
+    surface = NightSurface,
+    onSurface = NightInk,
+    surfaceVariant = NightSurfaceAlt,
+    onSurfaceVariant = NightInkMuted,
+    surfaceTint = Color(0xFF5CC0A5),
+    surfaceContainerLowest = Color(0xFF081014),
+    surfaceContainerLow = Color(0xFF111A1F),
+    surfaceContainer = Color(0xFF162127),
+    surfaceContainerHigh = Color(0xFF1F2C33),
+    surfaceContainerHighest = Color(0xFF27363E),
+    inverseSurface = Paper,
+    inverseOnSurface = Ink,
+
+    outline = Color(0xFF3A4B54),
+    outlineVariant = NightLine,
+    error = Color(0xFFF08A82),
+    onError = Color(0xFF56150F),
+    errorContainer = Color(0xFF7A231D),
+    onErrorContainer = Color(0xFFFFDAD6),
+    scrim = Color(0x99000000)
 )
 
 @Composable
 fun MyApplicationTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep high-contrast branded POS palette
+    dynamicColor: Boolean = false, // keep the branded POS identity
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = Typography(
+            displayLarge = PosType.displayLarge,
+            displayMedium = PosType.displayMedium,
+            displaySmall = PosType.displaySmall,
+            headlineLarge = PosType.headlineLarge,
+            headlineMedium = PosType.headlineMedium,
+            headlineSmall = PosType.headlineSmall,
+            titleLarge = PosType.titleLarge,
+            titleMedium = PosType.titleMedium,
+            titleSmall = PosType.titleSmall,
+            bodyLarge = PosType.bodyLarge,
+            bodyMedium = PosType.bodyMedium,
+            bodySmall = PosType.bodySmall,
+            labelLarge = PosType.labelLarge,
+            labelMedium = PosType.labelMedium,
+            labelSmall = PosType.labelSmall
+        ),
+        shapes = PosShapes,
         content = content
     )
 }

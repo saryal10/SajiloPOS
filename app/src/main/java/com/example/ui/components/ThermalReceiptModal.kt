@@ -10,10 +10,10 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,25 +22,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Done
+import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,20 +41,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.model.BusinessSettings
+import com.example.data.model.PaymentMethod
 import com.example.data.model.SaleTransaction
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.example.ui.theme.LineSubtle
+import com.example.ui.theme.PosSpace
+import com.example.ui.theme.PosType
+import com.example.ui.theme.ThermalPaperBg
+import com.example.ui.theme.ThermalReceiptFaint
+import com.example.ui.theme.ThermalReceiptInk
+import com.example.ui.util.Format
 
 @Composable
 fun ThermalReceiptModal(
@@ -74,324 +66,297 @@ fun ThermalReceiptModal(
     onNewSale: () -> Unit
 ) {
     val context = LocalContext.current
-    var selectedWidth by remember { mutableStateOf(settings.printerWidth) } // "58mm" or "80mm"
-    var showRawEscPos by remember { mutableStateOf(false) }
+    var paperWidth by remember { mutableStateOf(settings.printerWidth) }
 
-    val formattedDate = remember(sale.timestamp) {
-        SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(sale.timestamp))
-    }
+    val formattedDate = remember(sale.timestamp) { Format.dateTime(sale.timestamp) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
                 .testTag("thermal_receipt_modal"),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 12.dp
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(PosSpace.xl),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header & Action Bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Thermal Receipt Preview",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = onDismiss, modifier = Modifier.testTag("receipt_close_button")) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sale complete",
+                            style = PosType.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Print, share or start the next sale",
+                            style = PosType.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                }
-
-                // Width Selector (58mm vs 80mm)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    FilterChip(
-                        selected = selectedWidth == "58mm",
-                        onClick = { selectedWidth = "58mm" },
-                        label = { Text("58mm Roll (Compact)") },
-                        modifier = Modifier.testTag("chip_receipt_58mm")
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    FilterChip(
-                        selected = selectedWidth == "80mm",
-                        onClick = { selectedWidth = "80mm" },
-                        label = { Text("80mm Roll (Standard)") },
-                        modifier = Modifier.testTag("chip_receipt_80mm")
+                    SoftIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = "Close",
+                        onClick = onDismiss,
+                        size = 40.dp,
+                        testTag = "receipt_close_button"
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(PosSpace.lg))
 
-                // The Realistic Thermal Paper Slip
-                Card(
+                Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.xs)) {
+                    SoftPill(
+                        label = "58 mm",
+                        selected = paperWidth == "58mm",
+                        onClick = { paperWidth = "58mm" },
+                        testTag = "chip_receipt_58mm"
+                    )
+                    SoftPill(
+                        label = "80 mm",
+                        selected = paperWidth == "80mm",
+                        onClick = { paperWidth = "80mm" },
+                        testTag = "chip_receipt_80mm"
+                    )
+                }
+
+                Spacer(Modifier.height(PosSpace.xl))
+
+                // The physical-feeling thermal slip.
+                Surface(
                     modifier = Modifier
-                        .width(if (selectedWidth == "58mm") 280.dp else 340.dp)
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFCFDFD)),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                    shape = RoundedCornerShape(8.dp)
+                        .width(if (paperWidth == "58mm") 286.dp else 348.dp)
+                        .clip(RoundedCornerShape(14.dp)),
+                    color = ThermalPaperBg,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, LineSubtle)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
+                            .padding(PosSpace.lg),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Business Header
                         Text(
                             text = settings.businessName.uppercase(),
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
+                            style = PosType.receiptStrong,
+                            color = ThermalReceiptInk,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = settings.address,
+                            style = PosType.receipt,
+                            color = ThermalReceiptFaint,
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = settings.address,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color(0xFF475569)
-                        )
-                        Text(
-                            text = "PAN/VAT: ${settings.panVatNumber} | Tel: ${settings.phone}",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color(0xFF475569)
+                            text = "PAN ${settings.panVatNumber} · ${settings.phone}",
+                            style = PosType.receipt,
+                            color = ThermalReceiptFaint,
+                            textAlign = TextAlign.Center
                         )
 
-                        Text(
-                            text = "================================",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
-                        )
+                        Spacer(Modifier.height(PosSpace.sm))
+                        ReceiptDivider()
 
-                        // Invoice Details
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("INVOICE: ${sale.invoiceNumber}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("DATE: $formattedDate", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF475569))
-                        }
-                        if (sale.metaInfo.isNotBlank()) {
+                        ReceiptLine("INVOICE", sale.invoiceNumber, strong = true)
+                        ReceiptLine("DATE", formattedDate)
+                        ReceiptLine("CHANNEL", sale.metaInfo.ifBlank { sale.industryMode })
+                        ReceiptLine("STATUS", sale.paymentStatus)
+
+                        Spacer(Modifier.height(PosSpace.xxs))
+                        ReceiptDivider()
+
+                        receiptItems(sale).forEach { line ->
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("REF/MODE: ${sale.metaInfo}", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = Color(0xFF475569))
+                                Text(
+                                    text = line.first,
+                                    style = PosType.receipt,
+                                    color = ThermalReceiptInk,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2
+                                )
+                                Spacer(Modifier.width(PosSpace.xs))
+                                Text(
+                                    text = line.second,
+                                    style = PosType.receipt,
+                                    color = ThermalReceiptInk,
+                                    textAlign = TextAlign.End
+                                )
                             }
                         }
 
-                        Text(
-                            text = "--------------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-
-                        // Table Header
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("ITEM / DESCRIPTION", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Text("TOTAL (NPR)", fontFamily = FontFamily.Monospace, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        Text(
-                            text = "--------------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-
-                        // Itemized Content
-                        Text(
-                            text = sale.itemsSummary,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Text(
-                            text = "--------------------------------",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-
-                        // Totals Breakdown
-                        ReceiptLine(label = "SUBTOTAL:", value = "NPR ${"%.2f".format(sale.subtotal)}")
+                        Spacer(Modifier.height(PosSpace.xxs))
+                        ReceiptDivider()
+                        ReceiptLine("SUBTOTAL", Format.money(sale.subtotal, 2))
                         if (sale.serviceCharge > 0) {
-                            ReceiptLine(label = "SERVICE CHARGE (10%):", value = "NPR ${"%.2f".format(sale.serviceCharge)}")
+                            ReceiptLine("SERVICE CHARGE", Format.money(sale.serviceCharge, 2))
                         }
                         if (sale.vatTaxAmount > 0) {
-                            ReceiptLine(label = "TAXABLE VAT (13%):", value = "NPR ${"%.2f".format(sale.vatTaxAmount)}")
+                            ReceiptLine("VAT", Format.money(sale.vatTaxAmount, 2))
                         }
+                        Spacer(Modifier.height(PosSpace.xxs))
+                        ReceiptDivider()
 
-                        Text(
-                            text = "================================",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 10.sp,
-                            color = Color(0xFF94A3B8)
-                        )
-
-                        // Grand Total
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "GRAND TOTAL:",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                text = "GRAND TOTAL",
+                                style = PosType.receiptStrong.copy(fontSize = 13.sp),
+                                color = ThermalReceiptInk
                             )
                             Text(
-                                text = "${settings.currencySymbol} ${"%.2f".format(sale.grandTotal)}",
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
+                                text = Format.money(sale.grandTotal, 2, settings.currencySymbol),
+                                style = PosType.moneyTiny,
+                                color = ThermalReceiptInk
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(4.dp))
-                        ReceiptLine(label = "PAID VIA:", value = "${sale.paymentMethod} (${sale.paymentStatus})")
-
+                        ReceiptLine("PAID VIA", PaymentMethod.fromCode(sale.paymentMethod).displayName)
                         if (sale.cashTendered > 0) {
-                            ReceiptLine(label = "CASH TENDERED:", value = "NPR ${"%.2f".format(sale.cashTendered)}")
-                            ReceiptLine(label = "CHANGE RETURNED:", value = "NPR ${"%.2f".format(sale.cashChange)}")
+                            ReceiptLine("CASH RECEIVED", Format.money(sale.cashTendered, 2))
+                            ReceiptLine("CHANGE RETURNED", Format.money(sale.cashChange, 2))
+                        }
+                        if (sale.transactionRef.isNotBlank()) {
+                            ReceiptLine("REFERENCE", sale.transactionRef)
                         }
 
-                        ReceiptLine(label = "TXN REF:", value = sale.transactionRef)
+                        Spacer(Modifier.height(PosSpace.md))
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Nepal IRD Compliance Mock QR
                         QrCodeCanvas(
-                            payload = "ird.gov.np/verify?pan=${settings.panVatNumber}&inv=${sale.invoiceNumber}&total=${sale.grandTotal}",
-                            sizeDp = 80.dp
+                            payload = "https://ird.gov.np/verify?pan=${settings.panVatNumber}&inv=${sale.invoiceNumber}&total=${sale.grandTotal}",
+                            sizeDp = 76.dp
                         )
 
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(Modifier.height(PosSpace.sm))
                         Text(
-                            text = "** THANK YOU! VISIT AGAIN **\nPowered by SajiloPOS Nepal",
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 9.sp,
-                            textAlign = TextAlign.Center,
-                            color = Color(0xFF475569)
+                            text = "Thank you · Visit again",
+                            style = PosType.receipt,
+                            color = ThermalReceiptInk,
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "Powered by SajiloPOS",
+                            style = PosType.receipt,
+                            color = ThermalReceiptFaint,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(Modifier.height(PosSpace.xl))
 
-                // Actions: Print, Copy ESC/POS, Share, New Sale
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(PosSpace.sm)
                 ) {
-                    Button(
-                        onClick = {
-                            triggerAndroidPrint(context, sale, settings, formattedDate)
-                        },
+                    PrimaryButton(
+                        text = "Print",
+                        icon = Icons.Rounded.Print,
+                        onClick = { triggerAndroidPrint(context, sale, settings, formattedDate) },
+                        height = 50.dp,
                         modifier = Modifier
                             .weight(1f)
-                            .testTag("print_receipt_button"),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Print", fontWeight = FontWeight.Bold)
-                    }
-
-                    OutlinedButton(
-                        onClick = {
-                            val payload = generateEscPosCommandString(sale, settings, formattedDate)
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("ESC/POS Payload", payload))
-                            Toast.makeText(context, "ESC/POS command payload copied to clipboard", Toast.LENGTH_SHORT).show()
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .testTag("copy_escpos_button")
-                    ) {
-                        Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("ESC/POS", fontSize = 12.sp)
-                    }
-
-                    OutlinedButton(
+                            .testTag("print_receipt_button")
+                    )
+                    GhostButton(
+                        text = "Share",
+                        icon = Icons.Rounded.Share,
                         onClick = {
                             val shareText = generatePlainTextReceipt(sale, settings, formattedDate)
-                            val sendIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
+                            val intent = Intent(Intent.ACTION_SEND).apply {
                                 putExtra(Intent.EXTRA_TEXT, shareText)
                                 type = "text/plain"
                             }
-                            context.startActivity(Intent.createChooser(sendIntent, "Share Receipt Voucher"))
+                            context.startActivity(Intent.createChooser(intent, "Share receipt"))
                         },
+                        height = 50.dp,
                         modifier = Modifier.testTag("share_receipt_button")
-                    ) {
-                        Icon(Icons.Default.Share, contentDescription = "Share", modifier = Modifier.size(18.dp))
-                    }
+                    )
+                    GhostButton(
+                        text = "ESC/POS",
+                        icon = Icons.Rounded.ContentCopy,
+                        onClick = {
+                            val payload = generateEscPosCommandString(sale, settings, formattedDate)
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("ESC/POS payload", payload))
+                            Toast.makeText(context, "ESC/POS bytes copied for your Bluetooth printer", Toast.LENGTH_SHORT).show()
+                        },
+                        height = 50.dp,
+                        modifier = Modifier.testTag("copy_escpos_button")
+                    )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(Modifier.height(PosSpace.md))
 
-                Button(
+                PrimaryButton(
+                    text = "Start new sale",
+                    icon = Icons.Rounded.Done,
                     onClick = onNewSale,
+                    container = MaterialTheme.colorScheme.onSurface,
+                    content = MaterialTheme.colorScheme.surface,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .testTag("new_sale_button"),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
-                ) {
-                    Icon(Icons.Default.Done, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Start New Sale", fontWeight = FontWeight.Bold)
-                }
+                        .testTag("new_sale_button")
+                )
             }
         }
     }
 }
 
+/** Splits the stored plaintext summary into label / amount pairs for the slip. */
+private fun receiptItems(sale: SaleTransaction): List<Pair<String, String>> =
+    sale.itemsSummary
+        .lines()
+        .filter { it.isNotBlank() }
+        .map { line ->
+            val amount = line.substringAfterLast("@ NPR ", "")
+            val label = line.substringBeforeLast("@ NPR ")
+            if (amount.isBlank()) label to "" else label to amount
+        }
+
 @Composable
-private fun ReceiptLine(label: String, value: String) {
+private fun ReceiptDivider() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .padding(vertical = 4.dp)
+            .background(ThermalReceiptFaint.copy(alpha = 0.4f))
+    )
+}
+
+@Composable
+private fun ReceiptLine(label: String, value: String, strong: Boolean = false) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            color = Color(0xFF475569)
+            style = PosType.receipt,
+            color = ThermalReceiptFaint
         )
+        Spacer(Modifier.width(PosSpace.xs))
         Text(
             text = value,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium
+            style = if (strong) PosType.receiptStrong else PosType.receipt,
+            color = ThermalReceiptInk,
+            textAlign = TextAlign.End
         )
     }
 }
@@ -404,121 +369,124 @@ private fun triggerAndroidPrint(
 ) {
     try {
         val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager
-        if (printManager != null) {
-            val webView = WebView(context)
-            webView.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView?, url: String?) {
-                    val printAdapter = webView.createPrintDocumentAdapter(sale.invoiceNumber)
-                    printManager.print(
-                        "Receipt-${sale.invoiceNumber}",
-                        printAdapter,
-                        PrintAttributes.Builder()
-                            .setMediaSize(PrintAttributes.MediaSize.ISO_A7)
-                            .build()
-                    )
-                }
+        if (printManager == null) {
+            Toast.makeText(context, "Printing is not available on this device", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val webView = WebView(context)
+        webView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                val adapter = webView.createPrintDocumentAdapter("Receipt-${sale.invoiceNumber}")
+                printManager.print(
+                    "Receipt-${sale.invoiceNumber}",
+                    adapter,
+                    PrintAttributes.Builder()
+                        .setMediaSize(PrintAttributes.MediaSize.ISO_A7)
+                        .build()
+                )
+            }
+        }
+
+        val itemRows = sale.itemsSummary
+            .lines()
+            .filter { it.isNotBlank() }
+            .joinToString("") { line ->
+                val amount = line.substringAfterLast("@ NPR ", "")
+                val label = line.substringBeforeLast("@ NPR ")
+                "<div class='row'><span>$label</span><span>${if (amount.isBlank()) "" else "NPR $amount"}</span></div>"
             }
 
-            val html = """
-                <html>
-                <head>
-                    <style>
-                        body { font-family: monospace; font-size: 11px; padding: 10px; width: 280px; margin: auto; }
-                        .center { text-align: center; }
-                        .line { border-top: 1px dashed #000; margin: 6px 0; }
-                        .flex { display: flex; justify-content: space-between; }
-                        .bold { font-weight: bold; }
-                    </style>
-                </head>
-                <body>
-                    <div class="center bold">${settings.businessName}</div>
-                    <div class="center">${settings.address}</div>
-                    <div class="center">PAN/VAT: ${settings.panVatNumber} | Tel: ${settings.phone}</div>
-                    <div class="line"></div>
-                    <div class="flex"><span>INVOICE: ${sale.invoiceNumber}</span></div>
-                    <div class="flex"><span>DATE: $formattedDate</span></div>
-                    <div class="flex"><span>MODE: ${sale.industryMode}</span></div>
-                    <div class="line"></div>
-                    <pre style="font-size:10px;">${sale.itemsSummary}</pre>
-                    <div class="line"></div>
-                    <div class="flex"><span>Subtotal:</span><span>NPR ${"%.2f".format(sale.subtotal)}</span></div>
-                    ${if (sale.serviceCharge > 0) "<div class='flex'><span>Service Charge:</span><span>NPR ${"%.2f".format(sale.serviceCharge)}</span></div>" else ""}
-                    ${if (sale.vatTaxAmount > 0) "<div class='flex'><span>VAT (13%):</span><span>NPR ${"%.2f".format(sale.vatTaxAmount)}</span></div>" else ""}
-                    <div class="line"></div>
-                    <div class="flex bold" style="font-size:13px;"><span>GRAND TOTAL:</span><span>NPR ${"%.2f".format(sale.grandTotal)}</span></div>
-                    <div class="flex"><span>Paid Via:</span><span>${sale.paymentMethod}</span></div>
-                    <div class="flex"><span>Ref:</span><span>${sale.transactionRef}</span></div>
-                    <div class="line"></div>
-                    <div class="center">Thank you! Visit Again.</div>
-                    <div class="center" style="font-size:9px;">SajiloPOS System Nepal</div>
-                </body>
-                </html>
-            """.trimIndent()
+        val html = """
+            <html><head><style>
+                body { font-family: monospace; font-size: 11px; padding: 10px; margin: 0; color:#111; }
+                .center { text-align: center; }
+                .row { display: flex; justify-content: space-between; gap: 12px; }
+                .bold { font-weight: bold; }
+                hr { border: 0; border-top: 1px dashed #999; margin: 6px 0; }
+            </style></head><body>
+                <div class="center bold">${settings.businessName}</div>
+                <div class="center">${settings.address}</div>
+                <div class="center">PAN ${settings.panVatNumber} · ${settings.phone}</div>
+                <hr>
+                <div class="row"><span>INVOICE</span><span class="bold">${sale.invoiceNumber}</span></div>
+                <div class="row"><span>DATE</span><span>$formattedDate</span></div>
+                <div class="row"><span>CHANNEL</span><span>${sale.metaInfo}</span></div>
+                <hr>
+                $itemRows
+                <hr>
+                <div class="row"><span>SUBTOTAL</span><span>NPR ${"%.2f".format(sale.subtotal)}</span></div>
+                ${if (sale.serviceCharge > 0) "<div class='row'><span>SERVICE CHARGE</span><span>NPR ${"%.2f".format(sale.serviceCharge)}</span></div>" else ""}
+                ${if (sale.vatTaxAmount > 0) "<div class='row'><span>VAT</span><span>NPR ${"%.2f".format(sale.vatTaxAmount)}</span></div>" else ""}
+                <hr>
+                <div class="row bold" style="font-size:14px;"><span>GRAND TOTAL</span><span>NPR ${"%.2f".format(sale.grandTotal)}</span></div>
+                <div class="row"><span>PAID VIA</span><span>${PaymentMethod.fromCode(sale.paymentMethod).displayName}</span></div>
+                <div class="row"><span>REF</span><span>${sale.transactionRef}</span></div>
+                <hr>
+                <div class="center">Thank you · Visit again</div>
+                <div class="center">Powered by SajiloPOS</div>
+            </body></html>
+        """.trimIndent()
 
-            webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
-        } else {
-            Toast.makeText(context, "Print service not available on device", Toast.LENGTH_SHORT).show()
-        }
+        webView.loadDataWithBaseURL(null, html, "text/html", "utf-8", null)
     } catch (e: Exception) {
         Toast.makeText(context, "Print failed: ${e.message}", Toast.LENGTH_SHORT).show()
     }
 }
 
 /**
- * Generates raw ESC/POS command hexadecimal sequence for Bluetooth Thermal Printers
- * (Compatible with Sunmi, Xprinter, Rongta, POS-58, POS-80)
+ * ESC/POS byte plan for Bluetooth thermal printers
+ * (Sunmi, Xprinter, Rongta, POS-58 / POS-80).
  */
 private fun generateEscPosCommandString(
     sale: SaleTransaction,
     settings: BusinessSettings,
     dateStr: String
-): String {
-    return buildString {
-        append("/* ESC/POS RAW HEX STREAM FOR BLUETOOTH THERMAL PRINTER */\n")
-        append("1B 40 ") // Initialize printer
-        append("1B 61 01 ") // Center align
-        append("1B 21 30 ") // Double height/width font
-        append("[${settings.businessName}]\n")
-        append("1B 21 00 ") // Normal font
-        append("[${settings.address}]\n")
-        append("[PAN: ${settings.panVatNumber} | ${settings.phone}]\n")
-        append("1B 61 00 ") // Left align
-        append("--------------------------------\n")
-        append("INV: ${sale.invoiceNumber} | $dateStr\n")
-        append("--------------------------------\n")
-        append(sale.itemsSummary.replace("\n", "\n"))
-        append("\n--------------------------------\n")
-        append("TOTAL: NPR ${"%.2f".format(sale.grandTotal)}\n")
-        append("METHOD: ${sale.paymentMethod} (${sale.paymentStatus})\n")
-        append("REF: ${sale.transactionRef}\n")
-        append("1B 61 01 ") // Center align
-        append("Thank you for choosing us!\n")
-        append("1D 56 41 03 ") // Paper Cut command (GS V 65 3)
-    }
+): String = buildString {
+    appendLine("/* ESC/POS stream for 58mm / 80mm Bluetooth thermal printers */")
+    appendLine("1B 40            initialize")
+    appendLine("1B 61 01         center align")
+    appendLine("[${settings.businessName}]")
+    appendLine("[${settings.address}]")
+    appendLine("[PAN ${settings.panVatNumber} | ${settings.phone}]")
+    appendLine("1B 61 00         left align")
+    appendLine("--------------------------------")
+    appendLine("INV ${sale.invoiceNumber} | $dateStr")
+    appendLine("--------------------------------")
+    append(sale.itemsSummary)
+    appendLine()
+    appendLine("--------------------------------")
+    appendLine("TOTAL NPR ${"%.2f".format(sale.grandTotal)}")
+    appendLine("VAT NPR ${"%.2f".format(sale.vatTaxAmount)}")
+    appendLine("PAID ${sale.paymentMethod} (${sale.paymentStatus})")
+    appendLine("REF ${sale.transactionRef}")
+    appendLine("1B 61 01         center align")
+    appendLine("Thank you · Visit again")
+    appendLine("1D 56 41 03      cut paper")
 }
 
 private fun generatePlainTextReceipt(
     sale: SaleTransaction,
     settings: BusinessSettings,
     dateStr: String
-): String {
-    return """
-        *${settings.businessName}*
-        ${settings.address}
-        PAN/VAT: ${settings.panVatNumber} | Tel: ${settings.phone}
-        ==============================
-        Invoice: ${sale.invoiceNumber}
-        Date: $dateStr
-        Ref/Mode: ${sale.metaInfo}
-        ------------------------------
-        ${sale.itemsSummary}
-        ------------------------------
-        Subtotal: NPR ${"%.2f".format(sale.subtotal)}
-        ${if (sale.serviceCharge > 0) "Service Charge (10%): NPR ${"%.2f".format(sale.serviceCharge)}\n" else ""}${if (sale.vatTaxAmount > 0) "VAT (13%): NPR ${"%.2f".format(sale.vatTaxAmount)}\n" else ""}Total: NPR ${"%.2f".format(sale.grandTotal)}
-        Paid Via: ${sale.paymentMethod} (${sale.paymentStatus})
-        Ref: ${sale.transactionRef}
-        ==============================
-        Thank you! Visit again.
-        Powered by SajiloPOS
-    """.trimIndent()
+): String = buildString {
+    appendLine("*${settings.businessName}*")
+    appendLine(settings.address)
+    appendLine("PAN/VAT: ${settings.panVatNumber} | Tel: ${settings.phone}")
+    appendLine("==============================")
+    appendLine("Invoice: ${sale.invoiceNumber}")
+    appendLine("Date: $dateStr")
+    appendLine("Channel: ${sale.metaInfo.ifBlank { sale.industryMode }}")
+    appendLine("------------------------------")
+    appendLine(sale.itemsSummary)
+    appendLine("------------------------------")
+    appendLine("Subtotal: NPR ${"%.2f".format(sale.subtotal)}")
+    if (sale.serviceCharge > 0) appendLine("Service charge: NPR ${"%.2f".format(sale.serviceCharge)}")
+    if (sale.vatTaxAmount > 0) appendLine("VAT: NPR ${"%.2f".format(sale.vatTaxAmount)}")
+    appendLine("TOTAL: NPR ${"%.2f".format(sale.grandTotal)}")
+    appendLine("Paid via: ${PaymentMethod.fromCode(sale.paymentMethod).displayName}")
+    if (sale.transactionRef.isNotBlank()) appendLine("Ref: ${sale.transactionRef}")
+    appendLine("==============================")
+    appendLine("Thank you! Visit again.")
+    append("Powered by SajiloPOS")
 }

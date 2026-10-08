@@ -1,10 +1,12 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,30 +16,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.DirectionsBus
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.IntegrationInstructions
-import androidx.compose.material.icons.filled.Print
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.Store
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Business
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.HeadsetMic
+import androidx.compose.material.icons.rounded.Print
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Store
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,14 +46,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.data.model.BusinessSettings
 import com.example.data.model.IndustryMode
+import com.example.ui.components.GhostButton
+import com.example.ui.components.HairlineDivider
+import com.example.ui.components.PosCard
+import com.example.ui.components.PrimaryButton
+import com.example.ui.components.SectionHeader
+import com.example.ui.components.SoftPill
+import com.example.ui.util.Format
+import com.example.ui.theme.PosSpace
+import com.example.ui.theme.PosType
 
 @Composable
 fun SettingsScreen(
@@ -74,421 +81,460 @@ fun SettingsScreen(
     var printerWidth by remember(settings) { mutableStateOf(settings.printerWidth) }
     var currencySymbol by remember(settings) { mutableStateOf(settings.currencySymbol) }
 
-    var showHardwareGuideDialog by remember { mutableStateOf(false) }
-    var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
+    var showResetConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(
+                start = PosSpace.xl,
+                end = PosSpace.xl,
+                top = PosSpace.xl,
+                bottom = PosSpace.huge
+            ),
+        verticalArrangement = Arrangement.spacedBy(PosSpace.lg)
     ) {
-        // Industry Mode Switcher Section
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Industry Mode Switcher",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+        SectionHeader(
+            title = "Settings",
+            subtitle = "Business profile, taxes and hardware",
+            icon = Icons.Rounded.Business
+        )
+
+        // ---------------------------------------------------------------------
+        // Industry mode
+        // ---------------------------------------------------------------------
+        PosCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(
+                title = "Business type",
+                subtitle = "Switches the whole workflow: catalog, tables, tickets"
+            )
+            Spacer(Modifier.height(PosSpace.lg))
+            IndustryOption(
+                title = "Retail & grocery",
+                description = "Barcode scanning, unit pricing, low stock alerts",
+                icon = Icons.Rounded.Store,
+                selected = activeIndustry == IndustryMode.RETAIL,
+                onSelect = { onIndustryChange(IndustryMode.RETAIL) },
+                testTag = "mode_option_retail"
+            )
+            Spacer(Modifier.height(PosSpace.sm))
+            IndustryOption(
+                title = "Restaurant & cafe",
+                description = "Table service, kitchen items, service charge",
+                icon = Icons.Rounded.Restaurant,
+                selected = activeIndustry == IndustryMode.RESTAURANT,
+                onSelect = { onIndustryChange(IndustryMode.RESTAURANT) },
+                testTag = "mode_option_restaurant"
+            )
+            Spacer(Modifier.height(PosSpace.sm))
+            IndustryOption(
+                title = "Public transport",
+                description = "Route fares, bus tickets, statutory concessions",
+                icon = Icons.Rounded.DirectionsBus,
+                selected = activeIndustry == IndustryMode.TRANSPORT,
+                onSelect = { onIndustryChange(IndustryMode.TRANSPORT) },
+                testTag = "mode_option_transport"
+            )
+        }
+
+        // ---------------------------------------------------------------------
+        // Business profile
+        // ---------------------------------------------------------------------
+        PosCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(
+                title = "Receipt header",
+                subtitle = "Printed on every invoice and QR bill",
+                icon = Icons.Rounded.AccountBalance
+            )
+            Spacer(Modifier.height(PosSpace.lg))
+            SettingsField(
+                value = businessName,
+                onValueChange = { businessName = it },
+                label = "Shop / company name",
+                modifier = Modifier.testTag("settings_business_name")
+            )
+            Spacer(Modifier.height(PosSpace.sm))
+            SettingsField(
+                value = panVatNumber,
+                onValueChange = { panVatNumber = it },
+                label = "PAN / VAT number",
+                numeric = true,
+                modifier = Modifier.testTag("settings_pan_vat")
+            )
+            Spacer(Modifier.height(PosSpace.sm))
+            SettingsField(
+                value = address,
+                onValueChange = { address = it },
+                label = "Address"
+            )
+            Spacer(Modifier.height(PosSpace.sm))
+            Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.sm)) {
+                SettingsField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = "Phone",
+                    numeric = true,
+                    modifier = Modifier.weight(1.5f)
                 )
-                Text(
-                    text = "Adjusts POS workflows, catalog schemas, and ticket generators",
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                IndustryModeOption(
-                    mode = IndustryMode.RETAIL,
-                    title = "Retail Shop & Grocery",
-                    desc = "Standard inventory, barcode scanner, unit pricing (pcs/kg/pkt)",
-                    icon = Icons.Default.Store,
-                    isSelected = activeIndustry == IndustryMode.RETAIL,
-                    onSelect = { onIndustryChange(IndustryMode.RETAIL) }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                IndustryModeOption(
-                    mode = IndustryMode.RESTAURANT,
-                    title = "Restaurant & Cafe",
-                    desc = "Table management (Tables 1-12), KOT tickets, 10% Service Charge",
-                    icon = Icons.Default.Restaurant,
-                    isSelected = activeIndustry == IndustryMode.RESTAURANT,
-                    onSelect = { onIndustryChange(IndustryMode.RESTAURANT) }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                IndustryModeOption(
-                    mode = IndustryMode.TRANSPORT,
-                    title = "Public Transport & Bus Service",
-                    desc = "Route fares, bus ticket issuance, Student 45% statutory concession",
-                    icon = Icons.Default.DirectionsBus,
-                    isSelected = activeIndustry == IndustryMode.TRANSPORT,
-                    onSelect = { onIndustryChange(IndustryMode.TRANSPORT) }
+                SettingsField(
+                    value = currencySymbol,
+                    onValueChange = { currencySymbol = it },
+                    label = "Currency",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // ---------------------------------------------------------------------
+        // Taxes & hardware
+        // ---------------------------------------------------------------------
+        PosCard(modifier = Modifier.fillMaxWidth()) {
+            SectionHeader(
+                title = "Taxes & printing",
+                subtitle = "VAT, service charge and paper roll",
+                icon = Icons.Rounded.Print
+            )
 
-        // Business Information Section
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Business, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Business Profile (Receipt Header)",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+            Spacer(Modifier.height(PosSpace.lg))
 
-                Spacer(modifier = Modifier.height(12.dp))
+            ToggleRow(
+                title = "VAT ${Format.percent(settings.vatRatePercent)}",
+                description = "Nepal taxable VAT added at checkout",
+                checked = vatEnabled,
+                onCheckedChange = { vatEnabled = it },
+                testTag = "switch_vat_enabled"
+            )
 
-                OutlinedTextField(
-                    value = businessName,
-                    onValueChange = { businessName = it },
-                    label = { Text("Store / Company Name") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_business_name")
+            Spacer(Modifier.height(PosSpace.lg))
+            HairlineDivider()
+            Spacer(Modifier.height(PosSpace.lg))
+
+            ToggleRow(
+                title = "Service charge ${Format.percent(settings.serviceChargePercent)}",
+                description = "Applied to restaurant dine-in orders",
+                checked = serviceChargeEnabled,
+                onCheckedChange = { serviceChargeEnabled = it },
+                testTag = "switch_service_charge"
+            )
+
+            Spacer(Modifier.height(PosSpace.lg))
+            HairlineDivider()
+            Spacer(Modifier.height(PosSpace.lg))
+
+            Text(
+                text = "Thermal paper roll",
+                style = PosType.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(PosSpace.md))
+            Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.xs)) {
+                SoftPill(
+                    label = "58 mm · pocket",
+                    selected = printerWidth == "58mm",
+                    onClick = { printerWidth = "58mm" },
+                    testTag = "printer_width_58mm"
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = panVatNumber,
-                    onValueChange = { panVatNumber = it },
-                    label = { Text("PAN / VAT Registration Number") },
-                    singleLine = true,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("settings_pan_vat")
+                SoftPill(
+                    label = "80 mm · desktop",
+                    selected = printerWidth == "80mm",
+                    onClick = { printerWidth = "80mm" },
+                    testTag = "printer_width_80mm"
                 )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                OutlinedTextField(
-                    value = address,
-                    onValueChange = { address = it },
-                    label = { Text("Address / Location") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = phone,
-                        onValueChange = { phone = it },
-                        label = { Text("Contact Phone") },
-                        singleLine = true,
-                        modifier = Modifier.weight(1.4f)
-                    )
-                    OutlinedTextField(
-                        value = currencySymbol,
-                        onValueChange = { currencySymbol = it },
-                        label = { Text("Currency") },
-                        singleLine = true,
-                        modifier = Modifier.weight(0.6f)
-                    )
-                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Tax & Hardware Configuration
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Print, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Tax & Thermal Printer Configuration",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // VAT Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(text = "Nepal Value Added Tax (VAT 13%)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Text(text = "Calculates 13% taxable VAT on checkout", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(
-                        checked = vatEnabled,
-                        onCheckedChange = { vatEnabled = it },
-                        modifier = Modifier.testTag("switch_vat_enabled")
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-
-                // Service Charge Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(text = "Restaurant Service Charge (10%)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Text(text = "Applied to dine-in restaurant orders", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(
-                        checked = serviceChargeEnabled,
-                        onCheckedChange = { serviceChargeEnabled = it },
-                        modifier = Modifier.testTag("switch_service_charge")
-                    )
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-
-                // Thermal Printer Width Radio
-                Text(text = "Default Thermal Paper Roll Width:", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { printerWidth = "58mm" }
-                    ) {
-                        RadioButton(selected = printerWidth == "58mm", onClick = { printerWidth = "58mm" })
-                        Text("58mm (Compact Mobile Printer)")
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { printerWidth = "80mm" }
-                    ) {
-                        RadioButton(selected = printerWidth == "80mm", onClick = { printerWidth = "80mm" })
-                        Text("80mm (Desktop POS)")
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Save Settings Action
-        Button(
+        PrimaryButton(
+            text = "Save settings",
             onClick = {
-                val updated = settings.copy(
-                    businessName = businessName.trim(),
-                    panVatNumber = panVatNumber.trim(),
-                    address = address.trim(),
-                    phone = phone.trim(),
-                    vatEnabled = vatEnabled,
-                    serviceChargeEnabled = serviceChargeEnabled,
-                    printerWidth = printerWidth,
-                    currencySymbol = currencySymbol.trim(),
-                    activeIndustry = activeIndustry
+                onSaveSettings(
+                    settings.copy(
+                        businessName = businessName.trim(),
+                        panVatNumber = panVatNumber.trim(),
+                        address = address.trim(),
+                        phone = phone.trim(),
+                        vatEnabled = vatEnabled,
+                        serviceChargeEnabled = serviceChargeEnabled,
+                        printerWidth = printerWidth,
+                        currencySymbol = currencySymbol.trim(),
+                        activeIndustry = activeIndustry
+                    )
                 )
-                onSaveSettings(updated)
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(50.dp)
-                .testTag("save_settings_button"),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.Save, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Save Business Settings", fontWeight = FontWeight.Bold)
-        }
+                .testTag("save_settings_button")
+        )
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Hardware Integration Architecture Guide Button
-        OutlinedButton(
-            onClick = { showHardwareGuideDialog = true },
+        GhostButton(
+            text = "Hardware & payment API guide",
+            icon = Icons.Rounded.HeadsetMic,
+            onClick = { showGuide = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .testTag("hardware_guide_button"),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.IntegrationInstructions, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Hardware & Merchant API Guide")
-        }
+                .testTag("hardware_guide_button")
+        )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Reload Sample Data Button
-        OutlinedButton(
-            onClick = { showResetConfirmDialog = true },
+        GhostButton(
+            text = "Reload the Nepal demo catalog",
+            icon = Icons.Rounded.Refresh,
+            tint = MaterialTheme.colorScheme.error,
+            onClick = { showResetConfirm = true },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .testTag("reset_catalog_button"),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFEF4444)),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Reload Sample Nepal Demo Catalog")
-        }
+                .testTag("reset_catalog_button")
+        )
+
+        Text(
+            text = "SajiloPOS · offline-first POS for Nepal · v1.0",
+            style = PosType.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = PosSpace.sm),
+            textAlign = TextAlign.Center
+        )
     }
 
-    if (showHardwareGuideDialog) {
-        HardwareGuideDialog(onDismiss = { showHardwareGuideDialog = false })
-    }
-
-    if (showResetConfirmDialog) {
+    if (showGuide) {
         AlertDialog(
-            onDismissRequest = { showResetConfirmDialog = false },
-            title = { Text("Reload Demo Catalog?") },
-            text = { Text("This will re-insert sample Nepali retail, restaurant, and transport items into SQLite database.") },
+            onDismissRequest = { showGuide = false },
+            shape = RoundedCornerShape(24.dp),
+            title = {
+                Text("Hardware & API guide", style = PosType.titleLarge)
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(PosSpace.md)) {
+                    GuideBlock(
+                        icon = Icons.Rounded.Print,
+                        title = "Bluetooth thermal printers",
+                        body = "Pair any 58 mm or 80 mm ESC/POS printer (Sunmi, Xprinter, Rongta) in Android settings. SajiloPOS formats the receipt, and the print dialog can also send the job over Android PrintManager."
+                    )
+                    GuideBlock(
+                        icon = Icons.Rounded.Bolt,
+                        title = "Fonepay / eSewa / Khalti QR",
+                        body = "A dynamic QR is generated for the exact amount. The verification step polls the gateway callback (Fonepay responds with status 205) before the sale is settled and stock is decremented."
+                    )
+                    GuideBlock(
+                        icon = Icons.Rounded.AccountBalance,
+                        title = "IRD compliance",
+                        body = "Every receipt carries your PAN/VAT number, an invoice sequence number and a verification QR, keeping the bill audit-ready year round."
+                    )
+                    GuideBlock(
+                        icon = Icons.Rounded.Refresh,
+                        title = "Works without internet",
+                        body = "Sales, stock movements and reports are stored in a local SQLite database, so load shedding never stops your counter."
+                    )
+                }
+            },
             confirmButton = {
-                Button(
+                PrimaryButton(text = "Got it", onClick = { showGuide = false }, height = 46.dp)
+            }
+        )
+    }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            shape = RoundedCornerShape(24.dp),
+            title = { Text("Reload demo catalog?", style = PosType.titleMedium) },
+            text = {
+                Text(
+                    text = "This re-inserts the sample retail, restaurant and transport products into the local database.",
+                    style = PosType.bodyMedium
+                )
+            },
+            confirmButton = {
+                PrimaryButton(
+                    text = "Reload",
                     onClick = {
                         onResetCatalog()
-                        showResetConfirmDialog = false
+                        showResetConfirm = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
-                ) {
-                    Text("Reload")
-                }
+                    container = MaterialTheme.colorScheme.error,
+                    height = 44.dp,
+                    testTag = "confirm_reset_catalog"
+                )
             },
             dismissButton = {
-                OutlinedButton(onClick = { showResetConfirmDialog = false }) {
-                    Text("Cancel")
-                }
+                GhostButton(text = "Cancel", onClick = { showResetConfirm = false }, height = 44.dp)
             }
         )
     }
 }
 
 @Composable
-private fun IndustryModeOption(
-    mode: IndustryMode,
+private fun IndustryOption(
     title: String,
-    desc: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    isSelected: Boolean,
-    onSelect: () -> Unit
+    description: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onSelect: () -> Unit,
+    testTag: String
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surface
+            )
+            .border(
+                width = 1.dp,
+                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                shape = RoundedCornerShape(18.dp)
+            )
             .clickable { onSelect() }
-            .padding(12.dp)
-            .testTag("mode_option_${mode.name.lowercase()}")
+            .padding(PosSpace.md)
+            .testTag(testTag),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                    else MaterialTheme.colorScheme.surfaceVariant
+                ),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
+                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+        }
+        Spacer(Modifier.width(PosSpace.md))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = PosType.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = PosType.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
                 )
+                .border(
+                    width = 1.dp,
+                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (selected) {
                 Text(
-                    text = desc,
-                    fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "✓",
+                    style = PosType.labelSmall,
+                    color = MaterialTheme.colorScheme.onPrimary
                 )
             }
-            RadioButton(selected = isSelected, onClick = onSelect)
         }
     }
 }
 
 @Composable
-private fun HardwareGuideDialog(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Hardware & API Setup Guide", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-        },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    text = "1. Bluetooth Thermal ESC/POS Printers (Sunmi / 58mm / 80mm):",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "• In SajiloPOS, receipts format ESC/POS bytes (0x1B, 0x40 to init; 0x1D, 0x56 to cut paper).\n• To connect hardware: Pair Bluetooth printer in Android settings -> Use BluetoothSocket with SPP UUID '00001101-0000-1000-8000-00805F9B34FB' -> Write the raw bytes generated by SajiloPOS.\n• Alternatively, use Android PrintManager which is already integrated in this app!",
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "2. Fonepay Merchant Network Integration:",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "• Fonepay EMVCo QR: Call POST /api/merchant/generateQr with Merchant ID, Amount NPR, and Trace ID.\n• Webhook Callback: Fonepay posts { 'status': 205, 'responseCode': 'SUCCESS', 'prn': txnRef } to your server URL.\n• SajiloPOS's verification module polls this callback and updates inventory once status 205 is confirmed.",
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = "3. eSewa Epay v2 SDK:",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = "• In Nepal, eSewa transactions require secret merchant signature (HMAC-SHA256).\n• Callback endpoint returns refId upon user PIN entry.",
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(vertical = 4.dp)
-                )
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) {
-                Text("Got It")
-            }
+private fun ToggleRow(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    testTag: String? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = PosType.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = PosType.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
+        Spacer(Modifier.width(PosSpace.sm))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary
+            ),
+            modifier = if (testTag != null) Modifier.testTag(testTag) else Modifier
+        )
+    }
+}
+
+@Composable
+private fun SettingsField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    numeric: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, style = PosType.bodySmall) },
+        singleLine = true,
+        shape = RoundedCornerShape(14.dp),
+        textStyle = PosType.bodyMedium,
+        keyboardOptions = KeyboardOptions(keyboardType = if (numeric) KeyboardType.Number else KeyboardType.Text),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+        ),
+        modifier = modifier.fillMaxWidth()
     )
+}
+
+@Composable
+private fun GuideBlock(
+    icon: ImageVector,
+    title: String,
+    body: String
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(17.dp)
+            )
+        }
+        Spacer(Modifier.width(PosSpace.sm))
+        Column {
+            Text(text = title, style = PosType.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+            Spacer(Modifier.height(3.dp))
+            Text(text = body, style = PosType.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
