@@ -146,8 +146,8 @@ class AnalyticsEngineTest {
             leadTimeDays = 7
         )
 
-        assertTrue(suggestions.none { it.productId == 4 })
-        assertTrue(suggestions.none { it.productId == 3 })
+        assertTrue(suggestions.none { it.productId == 4L })
+        assertTrue(suggestions.none { it.productId == 3L })
     }
 
     @Test

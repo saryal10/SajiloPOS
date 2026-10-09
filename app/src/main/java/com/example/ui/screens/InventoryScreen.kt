@@ -26,16 +26,19 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import com.example.data.model.BusinessSettings
 import com.example.data.model.IndustryMode
 import com.example.data.model.ProductItem
+import com.example.ui.components.AvatarBadge
 import com.example.ui.components.EmptyState
 import com.example.ui.components.GhostButton
 import com.example.ui.components.HairlineDivider
@@ -63,6 +67,8 @@ import com.example.ui.components.StatTile
 import com.example.ui.components.StatusPill
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.LineSubtle
+import com.example.ui.theme.BrandGreenSoft
+import com.example.ui.theme.accentFor
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningOrange
 import com.example.ui.util.Format
@@ -79,6 +85,9 @@ fun InventoryScreen(
     onSaveProduct: (ProductItem) -> Unit,
     onDeleteProduct: (Long) -> Unit,
     onAdjustStock: (Long, Int) -> Unit,
+    onScanBarcode: () -> Unit = {},
+    intakeBarcode: String? = null,
+    onIntakeConsumed: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -88,10 +97,18 @@ fun InventoryScreen(
     var showEditor by remember { mutableStateOf(false) }
     var pendingDelete by remember { mutableStateOf<ProductItem?>(null) }
 
-    val categories = remember(products) { listOf("All") + products.map { it.category }.distinct() }
+    // Inventory mirrors the active business type, so a retail shop never sees
+    // restaurant or transport items mixed into its stock list.
+    val scopedProducts = remember(products, activeIndustry) {
+        products.filter { it.industryMode == activeIndustry.name }
+    }
 
-    val filteredList = remember(products, searchQuery, lowStockOnly, selectedCategory) {
-        products.filter { product ->
+    val categories = remember(scopedProducts) {
+        listOf("All") + scopedProducts.map { it.category }.distinct()
+    }
+
+    val filteredList = remember(scopedProducts, searchQuery, lowStockOnly, selectedCategory) {
+        scopedProducts.filter { product ->
             val matchesQuery = searchQuery.isBlank() ||
                 product.name.contains(searchQuery, ignoreCase = true) ||
                 product.nepaliName.contains(searchQuery, ignoreCase = true) ||
@@ -109,14 +126,14 @@ fun InventoryScreen(
                 start = PosSpace.xl,
                 end = PosSpace.xl,
                 top = PosSpace.xl,
-                bottom = 104.dp
+                bottom = 128.dp
             ),
             verticalArrangement = Arrangement.spacedBy(PosSpace.lg)
         ) {
             item {
                 SectionHeader(
                     title = "Inventory",
-                    subtitle = "${products.size} products in the catalog",
+                    subtitle = "${scopedProducts.size} ${activeIndustry.title.lowercase()} products",
                     icon = Icons.Rounded.Inventory2
                 )
             }
@@ -250,6 +267,9 @@ fun InventoryScreen(
         ProductEditorDialog(
             initialProduct = editingProduct,
             activeIndustry = activeIndustry,
+            intakeBarcode = intakeBarcode,
+            onScanBarcode = onScanBarcode,
+            onIntakeConsumed = onIntakeConsumed,
             onDismiss = { showEditor = false },
             onSave = { product ->
                 onSaveProduct(product)
@@ -314,7 +334,19 @@ private fun InventoryRow(
         .fillMaxWidth()
         .testTag("inventory_item_${product.id}")) {
         Row(verticalAlignment = Alignment.Top) {
+            AvatarBadge(
+                label = product.name,
+                accent = if (isOut) DangerRed else if (isLow) WarningOrange else accentFor(product.category).strong,
+                size = 42.dp
+            )
+            Spacer(Modifier.width(PosSpace.sm))
             Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = product.category.uppercase(),
+                    style = PosType.overline,
+                    color = accentFor(product.category).strong,
+                    maxLines = 1
+                )
                 Text(
                     text = product.name,
                     style = PosType.titleMedium,
@@ -413,7 +445,9 @@ private fun InventoryRow(
             HairlineDivider()
             Spacer(Modifier.height(PosSpace.md))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(end = 56.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -440,6 +474,9 @@ private fun InventoryRow(
 private fun ProductEditorDialog(
     initialProduct: ProductItem?,
     activeIndustry: IndustryMode,
+    intakeBarcode: String? = null,
+    onScanBarcode: () -> Unit = {},
+    onIntakeConsumed: () -> Unit = {},
     onDismiss: () -> Unit,
     onSave: (ProductItem) -> Unit
 ) {
@@ -455,6 +492,14 @@ private fun ProductEditorDialog(
 
     val priceValue = price.toDoubleOrNull()
     val canSave = name.isNotBlank() && priceValue != null && priceValue > 0.0
+
+    // A barcode captured by the scanner lands straight in the SKU field.
+    LaunchedEffect(intakeBarcode) {
+        if (intakeBarcode != null) {
+            barcode = intakeBarcode
+            onIntakeConsumed()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -531,7 +576,19 @@ private fun ProductEditorDialog(
                     value = barcode,
                     onValueChange = { barcode = it },
                     label = "Barcode / SKU",
-                    numeric = true
+                    numeric = true,
+                    trailingIcon = {
+                        IconButton(
+                            onClick = onScanBarcode,
+                            modifier = Modifier.testTag("scan_barcode_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.QrCodeScanner,
+                                contentDescription = "Scan barcode",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                 )
             }
         },
@@ -572,12 +629,14 @@ private fun EditorField(
     onValueChange: (String) -> Unit,
     label: String,
     modifier: Modifier = Modifier,
-    numeric: Boolean = false
+    numeric: Boolean = false,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label, style = PosType.bodySmall) },
+        trailingIcon = trailingIcon,
         singleLine = true,
         shape = RoundedCornerShape(14.dp),
         textStyle = PosType.bodyMedium,

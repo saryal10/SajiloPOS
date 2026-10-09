@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -59,6 +61,7 @@ import com.example.ui.theme.CardBorderWidth
 import com.example.ui.theme.CardRadius
 import com.example.ui.theme.InkFaint
 import com.example.ui.theme.LineSubtle
+import com.example.ui.theme.PosGradients
 import com.example.ui.theme.PosSpace
 import com.example.ui.theme.PosType
 
@@ -244,12 +247,14 @@ fun SoftPill(
         label = "pillFg"
     )
 
+    // The gradient/flat fill lives on the clickable Row, not as a Surface overlay:
+    // an overlay inside Surface would expand to the parent's max constraints.
     Surface(
         modifier = modifier.then(
             if (testTag != null) Modifier.testTag(testTag) else Modifier
         ),
         shape = RoundedCornerShape(50),
-        color = bg,
+        color = Color.Transparent,
         border = BorderStroke(
             1.dp,
             if (selected) Color.Transparent else MaterialTheme.colorScheme.outlineVariant
@@ -257,6 +262,12 @@ fun SoftPill(
     ) {
         Row(
             modifier = Modifier
+                .background(
+                    when {
+                        selected -> PosGradients.brand
+                        else -> SolidColor(MaterialTheme.colorScheme.surface)
+                    }
+                )
                 .clickable(
                     role = Role.Tab,
                     interactionSource = remember { MutableInteractionSource() },
@@ -264,7 +275,7 @@ fun SoftPill(
                     onClick = onClick
                 )
                 .heightIn(min = 38.dp)
-                .padding(horizontal = PosSpace.md, vertical = PosSpace.xs),
+                .padding(horizontal = PosSpace.sm, vertical = PosSpace.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (leadingIcon != null) {
@@ -360,6 +371,7 @@ fun PrimaryButton(
     container: Color = MaterialTheme.colorScheme.primary,
     content: Color = MaterialTheme.colorScheme.onPrimary,
     height: Dp = 54.dp,
+    gradient: Boolean = false,
     testTag: String? = null
 ) {
     val interaction = remember { MutableInteractionSource() }
@@ -376,7 +388,13 @@ fun PrimaryButton(
             .height(height)
             .scale(scale)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (enabled) container else MaterialTheme.colorScheme.surfaceVariant)
+            .background(
+                when {
+                    !enabled -> SolidColor(MaterialTheme.colorScheme.surfaceVariant)
+                    gradient -> PosGradients.brand
+                    else -> SolidColor(container)
+                }
+            )
             .clickable(
                 enabled = enabled,
                 interactionSource = interaction,

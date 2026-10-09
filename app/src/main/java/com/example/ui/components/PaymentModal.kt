@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +27,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Money
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -204,56 +207,75 @@ private fun LazyMethodGrid(
     enabled: Boolean,
     onSelect: (PaymentMethod) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(PosSpace.sm)) {
-        methods.chunked(2).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.sm)) {
-                row.forEach { method ->
-                    val isSelected = method == selected
-                    val accent = paymentAccent(method.code)
-                    PosCard(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(18.dp))
-                            .clickable(enabled = enabled) { onSelect(method) }
-                            .testTag("tab_payment_${method.name.lowercase()}"),
-                        containerColor = if (isSelected) accent.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surface,
-                        borderColor = if (isSelected) accent else MaterialTheme.colorScheme.outlineVariant,
-                        contentPadding = PaddingValues(PosSpace.md)
+    Column {
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("payment_method_row"),
+            horizontalArrangement = Arrangement.spacedBy(PosSpace.sm)
+        ) {
+            items(methods, key = { it.code }) { method ->
+                val isSelected = method == selected
+                val accent = paymentAccent(method.code)
+                PosCard(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .clickable(enabled = enabled) { onSelect(method) }
+                        .testTag("tab_payment_${method.name.lowercase()}"),
+                    containerColor = if (isSelected) accent.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surface,
+                    borderColor = if (isSelected) accent else MaterialTheme.colorScheme.outlineVariant,
+                    contentPadding = PaddingValues(vertical = PosSpace.md, horizontal = PosSpace.xs)
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(accent.copy(alpha = 0.14f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = method.shortLabel.take(1),
-                                    style = PosType.labelMedium,
-                                    color = accent
-                                )
-                            }
-                            Spacer(Modifier.width(PosSpace.sm))
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(15.dp))
+                                .background(accent.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(
-                                text = method.shortLabel,
+                                text = method.shortLabel.take(1),
                                 style = PosType.titleSmall,
-                                color = if (isSelected) MaterialTheme.colorScheme.onSurface
-                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1
+                                color = accent
                             )
                         }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = method.shortLabel,
+                            style = PosType.labelMedium,
+                            color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
                     }
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
+        Spacer(Modifier.height(PosSpace.xs))
+        Text(
+            text = methodHint(selected),
+            style = PosType.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
+private fun methodHint(method: PaymentMethod): String = when (method) {
+    PaymentMethod.CASH -> "Counted at the till"
+    PaymentMethod.FONEPAY -> "Scan to verify"
+    PaymentMethod.ESEWA -> "Wallet payment"
+    PaymentMethod.KHALTI -> "Wallet payment"
+}
+
 @Composable
-private fun BreakdownLine(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
+private fun BreakdownLine(label: String, value: String) {    Row(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = label,
             style = PosType.bodySmall,
@@ -302,14 +324,13 @@ private fun CashPaymentPanel(
                 "Exact" to grandTotal,
                 "+50" to (((grandTotal / 50).toInt() + 1) * 50).toDouble(),
                 "+100" to (((grandTotal / 100).toInt() + 1) * 100).toDouble(),
-                "+500" to 500.0,
-                "+1000" to 1000.0
+                "+500" to 500.0
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(PosSpace.xs)) {
             chips.forEach { (label, amount) ->
                 SoftPill(
-                    label = if (label == "Exact") "Exact" else Format.money(amount, 0, currencySymbol),
+                    label = label,
                     selected = false,
                     onClick = { onCashTenderedChange(Format.plain(amount, 2)) },
                     modifier = Modifier.weight(1f),

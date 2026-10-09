@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -87,8 +88,24 @@ fun SalesTrendChart(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
-                    // Value label only when there is room for it (short windows).
-                    if (points.size <= 8 && point.total > 0.0) {
+                    // Peak marker dot, Bills/Wallet style annotation.
+                    if (isPeak && hasData) {
+                        Box(
+                            modifier = Modifier
+                                .size(14.dp)
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary)
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    } else if (points.size <= 8 && point.total > 0.0) {
                         Text(
                             text = Format.compact(point.total),
                             style = PosType.labelSmall.copy(fontSize = 9.sp),
@@ -138,8 +155,10 @@ fun SalesTrendChart(
         }
 
         Spacer(Modifier.height(PosSpace.xs))
+        val peakDay = points.filter { it.total > 0.0 }.maxByOrNull { it.total }
         Text(
-            text = "Peak ${Format.money(points.maxOf { it.total }, 0, currencySymbol)}",
+            text = if (peakDay != null) "Peak ${peakDay.label} · ${Format.money(peakDay.total, 0, currencySymbol)}"
+            else "No sales in this window",
             style = PosType.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

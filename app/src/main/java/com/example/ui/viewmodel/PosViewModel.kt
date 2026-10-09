@@ -34,6 +34,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+/** Why the barcode scanner was opened. */
+enum class ScannerPurpose {
+    SALE,
+    INTAKE
+}
+
 data class PaymentVerificationState(
     val isVerifying: Boolean = false,
     val currentStep: String = "",
@@ -53,11 +59,40 @@ data class InsightsSnapshot(
     val orders: Int = 0,
     val grossProfit: Double = 0.0,
     val costOfGoods: Double = 0.0,
-    val peakDay: DailyPoint? = null
+    val peakDay: DailyPoint? = null,
+    val previousRevenue: Double = 0.0,
+    val previousOrders: Int = 0,
+    /** 30-day daily revenue, used for sparklines and the daily goal ring. */
+    val trend: List<Float> = emptyList(),
+    val todayRevenue: Double = 0.0,
+    val longWindowDays: Int = GOAL_WINDOW_DAYS
 ) {
     val averageTicket: Double get() = if (orders > 0) revenue / orders else 0.0
     val marginPercent: Double get() = if (revenue > 0.0) grossProfit / revenue * 100.0 else 0.0
     val bestDayTotal: Double get() = peakDay?.total ?: 0.0
+
+    /** The shop's own average day, used as a realistic target instead of a guess. */
+    val dailyGoal: Double get() = trend.sum().toDouble() / longWindowDays
+
+    /** 0f..1f+ — how today compares with the merchant's own average day. */
+    val goalProgress: Float
+        get() = if (dailyGoal > 0.0) (todayRevenue / dailyGoal).toFloat() else 0f
+
+    val revenueDeltaPercent: Double?
+        get() = percentChange(revenue, previousRevenue)
+
+    val ordersDeltaPercent: Double?
+        get() = if (previousOrders > 0) percentChange(orders.toDouble(), previousOrders.toDouble()) else null
+
+    val averageTicketDeltaPercent: Double?
+        get() = percentChange(averageTicket, if (previousOrders > 0) previousRevenue / previousOrders else 0.0)
+
+    private fun percentChange(current: Double, previous: Double): Double? =
+        if (previous > 0.0) (current - previous) / previous * 100.0 else null
+
+    companion object {
+        const val GOAL_WINDOW_DAYS = 30
+    }
 }
 
 class PosViewModel(application: Application) : AndroidViewModel(application) {
@@ -95,10 +130,13 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     val allProducts: StateFlow<List<ProductItem>> = repository.getAllProducts()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** Stock value at cost price — the merchant's working capital on the shelf. */
-    val inventoryValue: StateFlow<Double> = allProducts
-        .map { products -> products.sumOf { it.costPrice * it.stockQuantity } }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
+    /**
+     * Stock value at cost price for the active business type — the merchant's
+     * working capital on the shelf, not the whole catalog.
+     */
+    val inventoryValue: StateFlow<Double> = combine(_activeIndustry, allProducts) { mode, products ->
+        products.filter { it.industryMode == mode.name }.sumOf { it.costPrice * it.stockQuantity }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0.0)
 
     // Cart State
     private val _cartItems = MutableStateFlow<List<CartItem>>(emptyList())
@@ -160,13 +198,27 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     val insights: StateFlow<InsightsSnapshot> = _insightRange
         .flatMapLatest { range ->
             val since = Format.startOfWindow(range.days)
-            combine(
+            val previousSince = since - range.days.toLong() * Format.DAY_MS
+            val goalSince = Format.startOfWindow(InsightsSnapshot.GOAL_WINDOW_DAYS)
+
+            // combine() tops out at 5 flows, so related queries are paired first.
+            val currentAndPrevious = combine(
                 repository.dailySalesSince(since),
+                repository.dailySalesSince(previousSince)
+            ) { current, previous -> current to previous }
+
+            val commercial = combine(
                 repository.paymentMixSince(since),
                 repository.topItemsSince(since, TOP_SELLERS_LIMIT),
                 repository.marginSince(since)
-            ) { daily, mix, top, margin ->
-                val series = AnalyticsEngine.buildDailySeries(daily, range.days)
+            ) { mix, top, margin -> Triple(mix, top, margin) }
+
+            val goalRows = repository.dailySalesSince(goalSince)
+
+            combine(currentAndPrevious, commercial, goalRows) { (current, previous), (mix, top, margin), goal ->
+                val series = AnalyticsEngine.buildDailySeries(current, range.days)
+                val previousSeries = AnalyticsEngine.buildDailySeries(previous, range.days)
+                val goalSeries = AnalyticsEngine.buildDailySeries(goal, InsightsSnapshot.GOAL_WINDOW_DAYS)
                 val revenue = series.sumOf { it.total }
                 val orders = series.sumOf { it.orders }
                 InsightsSnapshot(
@@ -178,7 +230,11 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
                     orders = orders,
                     grossProfit = margin.revenue - margin.cost,
                     costOfGoods = margin.cost,
-                    peakDay = series.maxByOrNull { it.total }
+                    peakDay = series.maxByOrNull { it.total },
+                    previousRevenue = previousSeries.sumOf { it.total },
+                    previousOrders = previousSeries.sumOf { it.orders },
+                    trend = goalSeries.map { it.total.toFloat() },
+                    todayRevenue = series.lastOrNull()?.total ?: 0.0
                 )
             }
         }
@@ -223,7 +279,12 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.seedSampleDataIfNeeded()
-            _activeIndustry.value = settings.value.activeIndustry
+            // Retail-only app: ignore any previously saved business type so a
+            // device that once ran another mode always lands back on retail.
+            _activeIndustry.value = IndustryMode.RETAIL
+            if (settings.value.activeIndustry != IndustryMode.RETAIL) {
+                repository.updateSettings(settings.value.copy(activeIndustry = IndustryMode.RETAIL))
+            }
         }
     }
 
@@ -314,19 +375,50 @@ class PosViewModel(application: Application) : AndroidViewModel(application) {
         get() = cartSubtotal + serviceChargeAmount + vatAmount
 
     // Barcode Simulation
+    /** Why the scanner was opened: ringing up a sale, or capturing a barcode for stock intake. */
+    private var scannerPurpose = ScannerPurpose.SALE
+
+    private val _intakeBarcode = MutableStateFlow<String?>(null)
+    val intakeBarcode: StateFlow<String?> = _intakeBarcode.asStateFlow()
+
     fun openBarcodeScanner() {
+        scannerPurpose = ScannerPurpose.SALE
         _showBarcodeScanner.value = true
         _scannerScanFeedback.value = null
+    }
+
+    /** Opens the scanner to fill the barcode field of the stock editor. */
+    fun openIntakeScanner() {
+        scannerPurpose = ScannerPurpose.INTAKE
+        _showBarcodeScanner.value = true
+        _scannerScanFeedback.value = null
+    }
+
+    fun clearIntakeBarcode() {
+        _intakeBarcode.value = null
     }
 
     fun closeBarcodeScanner() {
         _showBarcodeScanner.value = false
         _scannerScanFeedback.value = null
+        scannerPurpose = ScannerPurpose.SALE
     }
 
     fun scanBarcode(rawBarcode: String) {
         val barcode = rawBarcode.trim()
         if (barcode.isBlank()) return
+
+        // Stock intake: hand the raw code to the product editor instead of the cart.
+        if (scannerPurpose == ScannerPurpose.INTAKE) {
+            viewModelScope.launch {
+                _intakeBarcode.value = barcode
+                _scannerScanFeedback.value = "✓ Barcode captured: $barcode"
+                delay(700)
+                _showBarcodeScanner.value = false
+                scannerPurpose = ScannerPurpose.SALE
+            }
+            return
+        }
 
         viewModelScope.launch {
             var product = repository.findByBarcode(barcode)

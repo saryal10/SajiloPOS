@@ -59,38 +59,38 @@ private fun Inter(
 )
 
 /**
- * Type scale tuned for POS ergonomics: large money figures, calm body copy,
- * wide generous line heights and slightly negative tracking on headings.
+ * Type scale tuned for high-contrast, Apple-grade legibility: oversized
+ * ExtraBold display and money figures with tight tracking, calm body copy.
  */
 object PosType {
 
-    val displayLarge = Manrope(40, 46, FontWeight.ExtraBold, (-0.8))
-    val displayMedium = Manrope(34, 40, FontWeight.ExtraBold, (-0.6))
-    val displaySmall = Manrope(28, 34, FontWeight.Bold, (-0.4))
+    val displayLarge = Manrope(46, 52, FontWeight.ExtraBold, (-1.0))
+    val displayMedium = Manrope(40, 46, FontWeight.ExtraBold, (-0.8))
+    val displaySmall = Manrope(34, 40, FontWeight.ExtraBold, (-0.6))
 
-    val headlineLarge = Manrope(26, 32, FontWeight.Bold, (-0.4))
-    val headlineMedium = Manrope(22, 28, FontWeight.Bold, (-0.3))
-    val headlineSmall = Manrope(19, 25, FontWeight.Bold, (-0.2))
+    val headlineLarge = Manrope(30, 36, FontWeight.ExtraBold, (-0.5))
+    val headlineMedium = Manrope(26, 32, FontWeight.ExtraBold, (-0.4))
+    val headlineSmall = Manrope(22, 28, FontWeight.Bold, (-0.3))
 
-    val titleLarge = Manrope(17, 23, FontWeight.Bold, (-0.15))
-    val titleMedium = Manrope(15, 21, FontWeight.SemiBold)
-    val titleSmall = Inter(14, 19, FontWeight.SemiBold, 0.05)
+    val titleLarge = Manrope(19, 25, FontWeight.Bold, (-0.2))
+    val titleMedium = Manrope(16, 22, FontWeight.Bold, (-0.1))
+    val titleSmall = Inter(15, 20, FontWeight.Bold, 0.0)
 
-    val bodyLarge = Inter(15, 23, FontWeight.Normal, 0.1)
-    val bodyMedium = Inter(14, 21, FontWeight.Normal, 0.1)
-    val bodySmall = Inter(12, 17, FontWeight.Normal, 0.15)
+    val bodyLarge = Inter(16, 24, FontWeight.Normal, 0.1)
+    val bodyMedium = Inter(15, 22, FontWeight.Normal, 0.1)
+    val bodySmall = Inter(13, 18, FontWeight.Normal, 0.15)
 
-    val labelLarge = Inter(14, 18, FontWeight.SemiBold, 0.15)
-    val labelMedium = Inter(12, 15, FontWeight.SemiBold, 0.25)
-    val labelSmall = Inter(10, 14, FontWeight.SemiBold, 0.6)
+    val labelLarge = Inter(15, 19, FontWeight.Bold, 0.1)
+    val labelMedium = Inter(13, 17, FontWeight.Bold, 0.2)
+    val labelSmall = Inter(11, 15, FontWeight.Bold, 0.5)
 
     val overline = Inter(10, 14, FontWeight.Bold, 1.1)
 
     // Money: big, tight, tabular-feeling figures.
-    val moneyLarge = Manrope(28, 32, FontWeight.ExtraBold, (-0.6))
-    val moneyMedium = Manrope(21, 26, FontWeight.Bold, (-0.4))
-    val moneySmall = Manrope(16, 21, FontWeight.Bold, (-0.2))
-    val moneyTiny = Manrope(13, 17, FontWeight.SemiBold, 0.0)
+    val moneyLarge = Manrope(34, 38, FontWeight.ExtraBold, (-0.8))
+    val moneyMedium = Manrope(24, 30, FontWeight.Bold, (-0.5))
+    val moneySmall = Manrope(18, 23, FontWeight.Bold, (-0.2))
+    val moneyTiny = Manrope(14, 18, FontWeight.SemiBold, 0.0)
 
     // Thermal printer / invoice style — monospace, 1:1 rhythm.
     val receipt = TextStyle(

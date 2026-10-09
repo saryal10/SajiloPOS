@@ -40,6 +40,8 @@ import com.example.data.model.PaymentMethod
 import com.example.data.model.SaleTransaction
 import com.example.ui.components.EmptyState
 import com.example.ui.components.PosCard
+import com.example.ui.components.RowChevron
+import com.example.ui.components.StatusPill
 import com.example.ui.components.PosSearchField
 import com.example.ui.components.SectionHeader
 import com.example.ui.components.SoftPill
@@ -265,13 +267,15 @@ private fun TransactionRow(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1
                 )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Receipt",
-                    style = PosType.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Spacer(Modifier.height(5.dp))
+                if (sale.paymentMethod == "CASH") {
+                    StatusPill(text = "Settled", accent = accent)
+                } else {
+                    StatusPill(text = "Verified", accent = accent)
+                }
             }
+
+            RowChevron(tint = MaterialTheme.colorScheme.outline)
         }
     }
 }

@@ -24,12 +24,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Business
-import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.HeadsetMic
 import androidx.compose.material.icons.rounded.Print
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Restaurant
-import androidx.compose.material.icons.rounded.Store
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -68,7 +65,6 @@ fun SettingsScreen(
     settings: BusinessSettings,
     activeIndustry: IndustryMode,
     onSaveSettings: (BusinessSettings) -> Unit,
-    onIndustryChange: (IndustryMode) -> Unit,
     onResetCatalog: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -101,43 +97,6 @@ fun SettingsScreen(
             subtitle = "Business profile, taxes and hardware",
             icon = Icons.Rounded.Business
         )
-
-        // ---------------------------------------------------------------------
-        // Industry mode
-        // ---------------------------------------------------------------------
-        PosCard(modifier = Modifier.fillMaxWidth()) {
-            SectionHeader(
-                title = "Business type",
-                subtitle = "Switches the whole workflow: catalog, tables, tickets"
-            )
-            Spacer(Modifier.height(PosSpace.lg))
-            IndustryOption(
-                title = "Retail & grocery",
-                description = "Barcode scanning, unit pricing, low stock alerts",
-                icon = Icons.Rounded.Store,
-                selected = activeIndustry == IndustryMode.RETAIL,
-                onSelect = { onIndustryChange(IndustryMode.RETAIL) },
-                testTag = "mode_option_retail"
-            )
-            Spacer(Modifier.height(PosSpace.sm))
-            IndustryOption(
-                title = "Restaurant & cafe",
-                description = "Table service, kitchen items, service charge",
-                icon = Icons.Rounded.Restaurant,
-                selected = activeIndustry == IndustryMode.RESTAURANT,
-                onSelect = { onIndustryChange(IndustryMode.RESTAURANT) },
-                testTag = "mode_option_restaurant"
-            )
-            Spacer(Modifier.height(PosSpace.sm))
-            IndustryOption(
-                title = "Public transport",
-                description = "Route fares, bus tickets, statutory concessions",
-                icon = Icons.Rounded.DirectionsBus,
-                selected = activeIndustry == IndustryMode.TRANSPORT,
-                onSelect = { onIndustryChange(IndustryMode.TRANSPORT) },
-                testTag = "mode_option_transport"
-            )
-        }
 
         // ---------------------------------------------------------------------
         // Business profile
@@ -361,89 +320,6 @@ fun SettingsScreen(
                 GhostButton(text = "Cancel", onClick = { showResetConfirm = false }, height = 44.dp)
             }
         )
-    }
-}
-
-@Composable
-private fun IndustryOption(
-    title: String,
-    description: String,
-    icon: ImageVector,
-    selected: Boolean,
-    onSelect: () -> Unit,
-    testTag: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface
-            )
-            .border(
-                width = 1.dp,
-                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(18.dp)
-            )
-            .clickable { onSelect() }
-            .padding(PosSpace.md)
-            .testTag(testTag),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(
-                    if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                    else MaterialTheme.colorScheme.surfaceVariant
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-        Spacer(Modifier.width(PosSpace.md))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = PosType.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = description,
-                style = PosType.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .clip(CircleShape)
-                .background(
-                    if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-                )
-                .border(
-                    width = 1.dp,
-                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                    shape = CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (selected) {
-                Text(
-                    text = "✓",
-                    style = PosType.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-            }
-        }
     }
 }
 

@@ -27,16 +27,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoGraph
-import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Inventory2
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PointOfSale
 import androidx.compose.material.icons.rounded.ReceiptLong
-import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Store
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -58,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -74,6 +71,9 @@ import com.example.ui.screens.PosScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.TransactionsScreen
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.theme.DangerRed
+import com.example.ui.theme.PosGradients
+import com.example.ui.theme.TintRose
 import com.example.ui.theme.PosSpace as Spacing
 import com.example.ui.viewmodel.PosViewModel
 import com.example.ui.theme.PosType
@@ -103,7 +103,6 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppContent(viewModel: PosViewModel) {
     var selectedTab by remember { mutableStateOf(PosTab.SALE) }
-    var industryMenuExpanded by remember { mutableStateOf(false) }
 
     val activeIndustry by viewModel.activeIndustry.collectAsStateWithLifecycle()
     val products by viewModel.products.collectAsStateWithLifecycle()
@@ -132,6 +131,7 @@ fun MainAppContent(viewModel: PosViewModel) {
 
     val showBarcodeScanner by viewModel.showBarcodeScanner.collectAsStateWithLifecycle()
     val scannerFeedback by viewModel.scannerScanFeedback.collectAsStateWithLifecycle()
+    val intakeBarcode by viewModel.intakeBarcode.collectAsStateWithLifecycle()
 
     val insights by viewModel.insights.collectAsStateWithLifecycle()
     val insightRange by viewModel.insightRange.collectAsStateWithLifecycle()
@@ -165,24 +165,29 @@ fun MainAppContent(viewModel: PosViewModel) {
                 ) {
                     Spacer(Modifier.height(Spacing.xs))
                     PosTab.entries.forEach { tab ->
+                        val isSelected = selectedTab == tab
                         NavigationRailItem(
-                            selected = selectedTab == tab,
+                            selected = isSelected,
                             onClick = { selectedTab = tab },
                             icon = {
-                                NavIcon(tab = tab, lowStockCount = lowStockProducts.size)
+                                NavIcon(
+                                    tab = tab,
+                                    selected = isSelected,
+                                    lowStockCount = lowStockProducts.size
+                                )
                             },
                             label = {
                                 Text(
                                     text = tab.shortTitle,
                                     style = PosType.labelSmall,
+                                    color = if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
                                     maxLines = 1
                                 )
                             },
-                            colors = NavigationRailItemDefaults.colors(
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.primary
-                            ),
                             modifier = Modifier
                                 .padding(vertical = Spacing.xxs)
                                 .testTag("nav_rail_${tab.name.lowercase()}")
@@ -208,15 +213,7 @@ fun MainAppContent(viewModel: PosViewModel) {
                     AppTopBar(
                         activeTab = selectedTab,
                         businessName = settings.businessName,
-                        activeIndustry = activeIndustry,
-                        industryMenuExpanded = industryMenuExpanded,
                         lowStockCount = lowStockProducts.size,
-                        onIndustryMenuToggle = { industryMenuExpanded = true },
-                        onDismissIndustryMenu = { industryMenuExpanded = false },
-                        onIndustryChange = {
-                            viewModel.setIndustryMode(it)
-                            industryMenuExpanded = false
-                        },
                         onOpenInventory = { selectedTab = PosTab.INVENTORY }
                     )
                 },
@@ -232,7 +229,13 @@ fun MainAppContent(viewModel: PosViewModel) {
                                 NavigationBarItem(
                                     selected = selectedTab == tab,
                                     onClick = { selectedTab = tab },
-                                    icon = { NavIcon(tab = tab, lowStockCount = lowStockProducts.size) },
+                                    icon = {
+                                        NavIcon(
+                                            tab = tab,
+                                            selected = selectedTab == tab,
+                                            lowStockCount = lowStockProducts.size
+                                        )
+                                    },
                                     label = {
                                         Text(
                                             text = tab.shortTitle,
@@ -287,7 +290,10 @@ fun MainAppContent(viewModel: PosViewModel) {
                                 onSelectRoute = { viewModel.selectRoute(it) },
                                 onPassengerTypeChange = { viewModel.setPassengerType(it) },
                                 onIssueTransportTicket = { viewModel.issueQuickTicket(it) },
-                                onOpenCheckout = { viewModel.openPaymentDialog() }
+                                onOpenCheckout = { viewModel.openPaymentDialog() },
+                                onOpenInsights = { selectedTab = PosTab.INSIGHTS },
+                                todayRevenue = insights.todayRevenue,
+                                todayOrders = insights.series.lastOrNull()?.orders ?: 0
                             )
                         }
 
@@ -297,9 +303,11 @@ fun MainAppContent(viewModel: PosViewModel) {
                                 selectedRange = insightRange,
                                 restockSuggestions = restockSuggestions,
                                 inventoryValue = inventoryValue,
+                                catalogCount = allProducts.count { it.industryMode == activeIndustry.name },
                                 settings = settings,
                                 onRangeChange = { viewModel.setInsightRange(it) },
-                                onRestock = { viewModel.applyRestockSuggestion(it) }
+                                onRestock = { viewModel.applyRestockSuggestion(it) },
+                                onOpenInventory = { selectedTab = PosTab.INVENTORY }
                             )
                         }
 
@@ -312,7 +320,10 @@ fun MainAppContent(viewModel: PosViewModel) {
                                 inventoryValue = inventoryValue,
                                 onSaveProduct = { viewModel.saveProduct(it) },
                                 onDeleteProduct = { viewModel.deleteProduct(it) },
-                                onAdjustStock = { id, delta -> viewModel.adjustStock(id, delta) }
+                                onAdjustStock = { id, delta -> viewModel.adjustStock(id, delta) },
+                                onScanBarcode = { viewModel.openIntakeScanner() },
+                                intakeBarcode = intakeBarcode,
+                                onIntakeConsumed = { viewModel.clearIntakeBarcode() }
                             )
                         }
 
@@ -329,7 +340,6 @@ fun MainAppContent(viewModel: PosViewModel) {
                                 settings = settings,
                                 activeIndustry = activeIndustry,
                                 onSaveSettings = { viewModel.updateBusinessSettings(it) },
-                                onIndustryChange = { viewModel.setIndustryMode(it) },
                                 onResetCatalog = { viewModel.resetCatalogToDefaults() }
                             )
                         }
@@ -376,20 +386,32 @@ fun MainAppContent(viewModel: PosViewModel) {
 }
 
 @Composable
-private fun NavIcon(tab: PosTab, lowStockCount: Int) {
-    if (tab == PosTab.INVENTORY && lowStockCount > 0) {
-        Box {
-            Icon(tab.icon, contentDescription = tab.title)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(8.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.error)
+private fun NavIcon(tab: PosTab, selected: Boolean, lowStockCount: Int) {
+    val tint = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(
+                if (selected) PosGradients.brand else SolidColor(MaterialTheme.colorScheme.surface)
             )
+            .padding(horizontal = Spacing.md, vertical = Spacing.xxs),
+        contentAlignment = Alignment.Center
+    ) {
+        if (tab == PosTab.INVENTORY && lowStockCount > 0) {
+            Box {
+                Icon(tab.icon, contentDescription = tab.title, tint = tint)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(8.dp)
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.error)
+                )
+            }
+        } else {
+            Icon(tab.icon, contentDescription = tab.title, tint = tint)
         }
-    } else {
-        Icon(tab.icon, contentDescription = tab.title)
     }
 }
 
@@ -403,7 +425,7 @@ private fun BrandMark(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(MaterialTheme.colorScheme.primary),
+                .background(PosGradients.hero),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -426,16 +448,11 @@ private fun BrandMark(modifier: Modifier = Modifier) {
 private fun AppTopBar(
     activeTab: PosTab,
     businessName: String,
-    activeIndustry: IndustryMode,
-    industryMenuExpanded: Boolean,
     lowStockCount: Int,
-    onIndustryMenuToggle: () -> Unit,
-    onDismissIndustryMenu: () -> Unit,
-    onIndustryChange: (IndustryMode) -> Unit,
     onOpenInventory: () -> Unit
 ) {
     Surface(
-        color = MaterialTheme.colorScheme.surface,
+        color = MaterialTheme.colorScheme.background,
         tonalElevation = 0.dp
     ) {
         Row(
@@ -473,7 +490,7 @@ private fun AppTopBar(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.errorContainer)
+                        .background(TintRose)
                         .clickable { onOpenInventory() }
                         .padding(horizontal = Spacing.sm, vertical = 7.dp)
                         .testTag("topbar_low_stock_chip")
@@ -481,80 +498,36 @@ private fun AppTopBar(
                     Text(
                         text = "$lowStockCount low",
                         style = PosType.labelMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        color = DangerRed,
                         maxLines = 1
                     )
                 }
                 Spacer(Modifier.width(Spacing.xs))
             }
 
-            Box {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.primaryContainer)
-                        .clickable { onIndustryMenuToggle() }
-                        .padding(start = Spacing.sm, end = Spacing.sm, top = 8.dp, bottom = 8.dp)
-                        .testTag("industry_mode_selector"),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = industryIcon(activeIndustry),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = activeIndustry.title,
-                        style = PosType.labelMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        maxLines = 1
-                    )
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = "Change industry",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = industryMenuExpanded,
-                    onDismissRequest = onDismissIndustryMenu
-                ) {
-                    IndustryMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        text = mode.title,
-                                        style = PosType.titleSmall
-                                    )
-                                    Text(
-                                        text = mode.subtitle,
-                                        style = PosType.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            },
-                            onClick = { onIndustryChange(mode) },
-                            leadingIcon = {
-                                Icon(imageVector = industryIcon(mode), contentDescription = null)
-                            },
-                            modifier = Modifier
-                                .padding(vertical = 2.dp)
-                                .testTag("menu_item_${mode.name.lowercase()}")
-                        )
-                    }
-                }
+            // Retail-only app: static store badge, no business-type switching.
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(PosGradients.brand)
+                    .padding(start = Spacing.sm, end = Spacing.sm, top = 8.dp, bottom = 8.dp)
+                    .testTag("industry_mode_selector"),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Store,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = IndustryMode.RETAIL.title,
+                    style = PosType.labelMedium,
+                    color = Color.White,
+                    maxLines = 1
+                )
             }
         }
     }
-}
-
-private fun industryIcon(mode: IndustryMode): ImageVector = when (mode) {
-    IndustryMode.RETAIL -> Icons.Rounded.Store
-    IndustryMode.RESTAURANT -> Icons.Rounded.Restaurant
-    IndustryMode.TRANSPORT -> Icons.Rounded.DirectionsBus
 }

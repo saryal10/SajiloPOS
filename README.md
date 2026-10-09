@@ -13,6 +13,7 @@ SajiloPOS is designed for the Nepali micro-entrepreneur: it keeps selling throug
 ## Table of contents
 
 - [Why it exists](#why-it-exists)
+- [Features](#features)
 - [Feature overview](#feature-overview)
 - [Screens](#screens)
 - [Technology](#technology)
@@ -42,6 +43,38 @@ Traditional POS hardware in Nepal costs more than the margin on a first month of
 | English-only UI | Nepali product names (Devanagari) throughout |
 
 Because the whole ledger lives on-device, a shop can ring up sales, print receipts and count stock with **no connectivity at all**.
+
+---
+
+## Features
+
+**Sell**
+- [x] One-tap **SCAN** hero: full-width gradient scan button, the merchant's primary action
+- [x] Camera barcode scanning (CameraX + ZXing) with torch, manual entry, and demo barcodes
+- [x] Product catalog with category color-coding, stock meters, low-stock / sold-out states
+- [x] Search by name, Nepali name, or barcode, plus category filter chips
+- [x] Floating cart bar with live total; dual-pane catalog + cart on tablets
+
+**Checkout & payments**
+- [x] Cash with quick-tender chips and live change calculation
+- [x] eSewa / Fonepay / Khalti dynamic QR with gateway verification flow
+- [x] Thermal receipt preview (58/80 mm), Android printing, share, and ESC/POS copy
+- [x] Sequential daily invoice numbers (`INV-YYYYMMDD-0001`)
+
+**Insights**
+- [x] Revenue, orders, average ticket, gross profit and margin for Today / 7 / 30 days
+- [x] Gap-free sales trend chart with peak-day marker, payment-mix donut, top sellers
+- [x] Predictive restocking from 14-day sales velocity with one-tap restock
+
+**Stock**
+- [x] Add/edit products with quantity, cost price, and selling price
+- [x] In-form barcode scanning that fills the SKU field straight from the camera
+- [x] Low-stock alerts, quick stock adjusters, per-product margin %
+
+**History, Settings & more**
+- [x] Full sales history with search, payment filters, and receipt reprint
+- [x] Business profile, PAN/VAT, VAT toggle, paper width, demo catalog reload
+- [x] Fully offline: Room/SQLite ledger, bundled fonts, Nepali (Devanagari) names, `रू 1,25,000` grouping
 
 ---
 
@@ -149,17 +182,22 @@ Key decisions:
 
 ## Design system
 
-Deliberately airy and high-legibility for fast counter use.
+Apple-clean and high-contrast for fast counter use: near-black headlines, oversized
+ExtraBold display and money figures, generous whitespace, hairline borders.
 
-- **Typography** — bundled variable fonts, fully offline: **Manrope** for headings and money, **Inter** for body text. Full 17-style scale with tightened heading tracking and generous line heights.
-- **Palette** — "Himalayan Paper": white cards on `#F7F9FA` paper, one pine-green brand accent (`#0E7C63`), marigold highlight (`#E9A13B`), hairline `#E7ECEF` borders. A matching dark theme is included.
-- **Spacing** — a single `PosSpace` ladder (4 → 44 dp); 20 dp screen gutters, 20 dp card radius, no heavy shadows.
-- **Components** — `PosCard`, `SectionHeader`, `StatTile`, `SoftPill`, `PosSearchField`, `PrimaryButton` / `GhostButton`, `StatusPill`, `EmptyState`, plus charts in `Charts.kt`.
+- **Typography** — bundled variable fonts, fully offline: **Manrope** for headings and money, **Inter** for body text. Oversized scale (up to 46 sp display, 34 sp money) with tight tracking.
+- **Palette** — neutral `#F4F4F6` paper, pure-white cards, near-black `#0B0C0E` ink, Apple-gray secondaries, hairline `#E8E8ED` borders. Colour comes from accents: brand teal gradients, category hues, and status tints — never the canvas. A matching dark theme is included.
+- **Spacing** — a single `PosSpace` ladder (up to 56 dp); 24 dp screen gutters, 20 dp card radius, no heavy shadows.
+- **Components** — `PosCard`, `SectionHeader`, `StatTile` / `StatCard`, `SoftPill`, `PosSearchField`, `PrimaryButton` / `GhostButton`, `StatusPill`, `RingGauge`, `AvatarBadge`, `EmptyState`, plus charts in `Charts.kt`.
 - **Accessibility** — every interactive element has a content description or role, semantic test tags throughout, and TalkBack-readable charts (column-based bars with real text, not canvas-only).
 
 ---
 
 ## Getting started
+
+> **New here? Start with [`instruction.md`](instruction.md)** — step-by-step
+> instructions for running the app on an emulator or a real phone, building
+> from the command line, and troubleshooting.
 
 ### Requirements
 - JDK 17+ (JDK 21 recommended)
@@ -170,14 +208,9 @@ Deliberately airy and high-legibility for fast counter use.
 1. Open the project folder in Android Studio (Gradle sync runs automatically).
 2. Select the `app` run configuration and press **Run**.
 
-> **Note on the Gradle wrapper:** this repository currently ships only
-> `gradle/wrapper/gradle-wrapper.properties`. The `gradlew` scripts and
-> `gradle-wrapper.jar` are missing (also true of the original scaffold), so a
-> command-line `./gradlew` build will not work until they are regenerated:
-> ```bash
-> gradle wrapper --gradle-version 9.3.1
-> ```
-> Android Studio will use its own bundled Gradle in the meantime.
+> The Gradle wrapper (`gradlew`, `gradle/wrapper/gradle-wrapper.jar`, Gradle 9.3.1)
+> ships with the repo, so `./gradlew` works out of the box — no separate Gradle
+> install needed. Android Studio will use it automatically on sync.
 
 ### Configuration
 All business settings live in the app (Settings tab) and persist to `SharedPreferences`:
@@ -280,7 +313,7 @@ Aligned with the requirement analysis document:
 
 ## Known gaps
 
-1. **Gradle wrapper jar is missing** — see [Getting started](#getting-started).
+1. **Command-line builds work out of the box** — the Gradle wrapper ships in the repo (`./gradlew assembleDebug`). See [`instruction.md`](instruction.md) for the full run/build/test walkthrough.
 2. **Payment gateway calls are simulated**, not live (needs merchant credentials).
 3. **No BLE printer socket** — printing relies on `PrintManager`.
 4. **Namespace is `com.example`** — rename to your own domain before publishing.

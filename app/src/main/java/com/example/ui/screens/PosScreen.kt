@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,10 +31,13 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.ShoppingBag
 import androidx.compose.material.icons.rounded.TableRestaurant
+import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -50,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Icon
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,7 +76,11 @@ import com.example.ui.components.SoftIconButton
 import com.example.ui.components.SoftPill
 import com.example.ui.components.StatusPill
 import com.example.ui.theme.DangerRed
+import com.example.ui.theme.InkFaint
+import com.example.ui.theme.VividTeal
+import com.example.ui.theme.accentFor
 import com.example.ui.theme.LineSubtle
+import com.example.ui.theme.PosGradients
 import com.example.ui.theme.PosSpace as Spacing
 import com.example.ui.theme.SuccessGreen
 import com.example.ui.theme.WarningOrange
@@ -79,6 +88,7 @@ import com.example.ui.util.Format
 import com.example.ui.theme.PosType
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosScreen(
     activeIndustry: IndustryMode,
@@ -109,6 +119,9 @@ fun PosScreen(
     onPassengerTypeChange: (String) -> Unit,
     onIssueTransportTicket: (String) -> Unit,
     onOpenCheckout: () -> Unit,
+    onOpenInsights: () -> Unit = {},
+    todayRevenue: Double = 0.0,
+    todayOrders: Int = 0,
     modifier: Modifier = Modifier
 ) {
     var showMobileCartSheet by remember { mutableStateOf(false) }
@@ -140,6 +153,9 @@ fun PosScreen(
                     onSelectRoute = onSelectRoute,
                     onPassengerTypeChange = onPassengerTypeChange,
                     onIssueTransportTicket = onIssueTransportTicket,
+                    onOpenInsights = onOpenInsights,
+                    todayRevenue = todayRevenue,
+                    todayOrders = todayOrders,
                     modifier = Modifier
                         .weight(1.4f)
                         .fillMaxHeight()
@@ -198,6 +214,9 @@ fun PosScreen(
                     onSelectRoute = onSelectRoute,
                     onPassengerTypeChange = onPassengerTypeChange,
                     onIssueTransportTicket = onIssueTransportTicket,
+                    onOpenInsights = onOpenInsights,
+                    todayRevenue = todayRevenue,
+                    todayOrders = todayOrders,
                     modifier = Modifier.padding(bottom = if (cartItems.isNotEmpty()) 92.dp else 0.dp)
                 )
 
@@ -268,9 +287,15 @@ private fun FloatingCartBar(
             .fillMaxWidth()
             .testTag("floating_cart_bar"),
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primary,
+        color = Color.Transparent,
         shadowElevation = 12.dp
     ) {
+        Box(
+            modifier = Modifier.background(
+                brush = PosGradients.brand,
+                shape = RoundedCornerShape(20.dp)
+            )
+        ) {
         Row(
             modifier = Modifier
                 .clickable { onReview() }
@@ -316,10 +341,125 @@ private fun FloatingCartBar(
                 text = "Pay",
                 icon = Icons.Rounded.Payments,
                 onClick = onPay,
-                container = MaterialTheme.colorScheme.secondary,
-                content = MaterialTheme.colorScheme.onSecondary,
+                container = Color.White,
+                content = VividTeal,
                 height = 46.dp,
                 modifier = Modifier.testTag("quick_pay_button")
+            )
+        }
+        }
+    }
+}
+
+@Composable
+private fun ScanHero(
+    onScan: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .background(PosGradients.hero)
+            .clickable { onScan() }
+            .padding(vertical = Spacing.lg)
+            .testTag("scan_hero"),
+        contentAlignment = Alignment.Center
+    ) {
+        // Decorative glass circles, Praktish-hero style.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 40.dp, y = (-48).dp)
+                .size(140.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.12f))
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-34).dp, y = 44.dp)
+                .size(96.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.10f))
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.QrCodeScanner,
+                contentDescription = "Scan barcode",
+                tint = Color.White,
+                modifier = Modifier.size(30.dp)
+            )
+            Spacer(Modifier.width(Spacing.sm))
+            Text(
+                text = "SCAN",
+                style = PosType.titleLarge,
+                color = Color.White
+            )
+        }
+    }
+}
+
+@Composable
+private fun TodayStrip(
+    revenue: Double,
+    orders: Int,
+    currencySymbol: String,
+    onViewReport: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(PosGradients.brand)
+            .clickable { onViewReport() }
+            .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+            .testTag("today_strip")
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.TrendingUp,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Today's sales",
+                    style = PosType.labelMedium,
+                    color = Color.White.copy(alpha = 0.85f)
+                )
+                Text(
+                    text = Format.money(revenue, 0, currencySymbol),
+                    style = PosType.moneyMedium,
+                    color = Color.White,
+                    maxLines = 1
+                )
+                Text(
+                    text = if (orders > 0) "$orders ${if (orders == 1) "order" else "orders"} · View report" else "No sales yet · Tap for report",
+                    style = PosType.bodySmall,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1
+                )
+            }
+            Icon(
+                imageVector = Icons.Rounded.ChevronRight,
+                contentDescription = "View report",
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(20.dp)
             )
         }
     }
@@ -345,6 +485,9 @@ private fun CatalogSection(
     onSelectRoute: (TransportRoute) -> Unit,
     onPassengerTypeChange: (String) -> Unit,
     onIssueTransportTicket: (String) -> Unit,
+    onOpenInsights: () -> Unit = {},
+    todayRevenue: Double = 0.0,
+    todayOrders: Int = 0,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -357,6 +500,24 @@ private fun CatalogSection(
                 bottom = Spacing.xl
             )
     ) {
+        // Scan is the merchant's primary action: hero-sized, always first.
+        if (activeIndustry == IndustryMode.RETAIL) {
+            ScanHero(
+                onScan = onOpenScanner
+            )
+
+            Spacer(Modifier.height(Spacing.md))
+        }
+
+        TodayStrip(
+            revenue = todayRevenue,
+            orders = todayOrders,
+            currencySymbol = currencySymbol,
+            onViewReport = onOpenInsights
+        )
+
+        Spacer(Modifier.height(Spacing.md))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
@@ -365,28 +526,14 @@ private fun CatalogSection(
                 value = searchQuery,
                 onValueChange = onSearchChange,
                 placeholder = when (activeIndustry) {
-                    IndustryMode.RETAIL -> "Search products or scan a barcode"
-                    IndustryMode.RESTAURANT -> "Search the menu — momo, chowmein, drinks"
-                    IndustryMode.TRANSPORT -> "Search routes and destinations"
+                    IndustryMode.RETAIL -> "Search or scan a barcode"
+                    IndustryMode.RESTAURANT -> "Search the menu"
+                    IndustryMode.TRANSPORT -> "Search routes"
                 },
                 modifier = Modifier
                     .weight(1f)
                     .testTag("pos_search_input")
             )
-
-            if (activeIndustry == IndustryMode.RETAIL) {
-                Spacer(Modifier.width(Spacing.sm))
-                SoftIconButton(
-                    icon = Icons.Rounded.QrCodeScanner,
-                    contentDescription = "Scan barcode",
-                    onClick = onOpenScanner,
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    container = MaterialTheme.colorScheme.primary,
-                    size = 54.dp,
-                    iconSize = 22.dp,
-                    modifier = Modifier.testTag("open_barcode_scanner_button")
-                )
-            }
         }
 
         Spacer(Modifier.height(Spacing.lg))
@@ -620,25 +767,55 @@ private fun ProductCard(
     val isStockManaged = product.industryMode != "TRANSPORT"
     val isOutOfStock = isStockManaged && product.stockQuantity <= 0
     val isLowStock = isStockManaged && product.stockQuantity in 1..product.minStockThreshold
+    val accent = accentFor(product.category)
 
     PosCard(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("product_card_${product.id}"),
-        contentPadding = PaddingValues(Spacing.md)
+        borderColor = accent.strong.copy(alpha = 0.30f),
+        contentPadding = PaddingValues(0.dp)
     ) {
+        // Tinted tile header: big initial avatar + category + stock state.
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(accent.tint)
+                .padding(horizontal = Spacing.sm, vertical = Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = product.category.uppercase(),
-                style = PosType.overline,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(
+                        if (isOutOfStock) MaterialTheme.colorScheme.surfaceVariant
+                        else accent.strong
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = product.name.take(1).uppercase(),
+                    style = PosType.titleMedium,
+                    color = if (isOutOfStock) InkFaint else Color.White
+                )
+            }
+            Spacer(Modifier.width(Spacing.sm))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = product.category.uppercase(),
+                    style = PosType.overline,
+                    color = accent.strong,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "per ${product.unit}",
+                    style = PosType.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
             if (isOutOfStock) {
                 StatusPill(text = "SOLD OUT", accent = DangerRed)
             } else if (isLowStock) {
@@ -646,60 +823,110 @@ private fun ProductCard(
             }
         }
 
-        Spacer(Modifier.height(Spacing.xs))
-
-        Text(
-            text = product.name,
-            style = PosType.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(40.dp)
-        )
-
-        if (product.nepaliName.isNotBlank()) {
-            Text(
-                text = product.nepaliName,
-                style = PosType.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(Modifier.height(Spacing.md))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Spacing.md, vertical = Spacing.sm)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = product.name,
+                style = PosType.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.height(44.dp)
+            )
+
+            if (product.nepaliName.isNotBlank()) {
                 Text(
-                    text = Format.money(product.price, 0, currencySymbol),
-                    style = PosType.moneySmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1
-                )
-                Text(
-                    text = "per ${product.unit}",
-                    style = PosType.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = product.nepaliName,
+                    style = PosType.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Spacer(Modifier.width(Spacing.xs))
+            if (isStockManaged && product.stockQuantity <= product.minStockThreshold * 2) {
+                Spacer(Modifier.height(Spacing.xs))
+                StockMeter(
+                    stock = product.stockQuantity,
+                    capacity = (product.minStockThreshold * 4).coerceAtLeast(1),
+                    accent = accent.strong
+                )
+            }
 
-            SoftIconButton(
-                icon = Icons.Rounded.Add,
-                contentDescription = "Add ${product.name}",
-                onClick = onAdd,
-                tint = if (isOutOfStock) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onPrimary,
-                container = if (isOutOfStock) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primary,
-                size = 42.dp,
-                iconSize = 20.dp,
-                modifier = Modifier.testTag("add_product_${product.id}")
+            Spacer(Modifier.height(Spacing.sm))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = Format.money(product.price, 0, currencySymbol),
+                    style = PosType.moneySmall,
+                    color = accent.strong,
+                    maxLines = 1,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(15.dp))
+                        .background(
+                            if (isOutOfStock) MaterialTheme.colorScheme.surfaceVariant
+                            else accent.strong
+                        )
+                        .clickable(enabled = !isOutOfStock) { onAdd() }
+                        .testTag("add_product_${product.id}"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Add ${product.name}",
+                        tint = if (isOutOfStock) InkFaint else Color.White,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StockMeter(
+    stock: Int,
+    capacity: Int,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(5.dp)
+                .clip(RoundedCornerShape(50))
+                .background(accent.copy(alpha = 0.18f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .fillMaxWidth((stock.toFloat() / capacity.toFloat()).coerceIn(0.02f, 1f))
+                    .clip(RoundedCornerShape(50))
+                    .background(accent)
             )
         }
+        Spacer(Modifier.width(Spacing.xs))
+        Text(
+            text = "$stock left",
+            style = PosType.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
     }
 }
 

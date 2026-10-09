@@ -16,17 +16,17 @@ val PosShapes = Shapes(
 object PosSpace {
     val hairline = 2.dp
     val xxs = 4.dp
-    val xs = 8.dp
-    val sm = 12.dp
-    val md = 16.dp
-    val lg = 20.dp
-    val xl = 24.dp
-    val xxl = 32.dp
-    val huge = 44.dp
+    val xs = 10.dp
+    val sm = 14.dp
+    val md = 20.dp
+    val lg = 24.dp
+    val xl = 28.dp
+    val xxl = 40.dp
+    val huge = 56.dp
 }
 
 /** Screen gutter used by every top-level destination. */
-val ScreenGutter = 20.dp
+val ScreenGutter = 24.dp
 
 /** Card corner + border width used by PosCard. */
 val CardRadius = 20.dp

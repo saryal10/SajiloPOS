@@ -11,16 +11,36 @@ import java.util.Locale
  */
 object Format {
 
-    /** Indian/Nepali digit grouping: 1,25,000 instead of 125,000. */
-    private val groupingLocale: Locale = Locale.forLanguageTag("en-IN")
-
     fun money(value: Double, decimals: Int = 0, symbol: String = "रू"): String =
         symbol + " " + number(value, decimals)
 
-    fun number(value: Double, decimals: Int = 0): String = when (decimals) {
-        0 -> String.format(groupingLocale, "%,d", Math.round(value))
-        2 -> String.format(groupingLocale, "%,.2f", value)
-        else -> String.format(groupingLocale, "%,.${decimals}f", value)
+    /**
+     * Indian/Nepali digit grouping: 1,25,000 and 12,50,000 rather than 125,000.
+     * Implemented by hand because java.text with Locale "en-IN" still applies
+     * Western grouping on several JDK/Android versions.
+     */
+    fun number(value: Double, decimals: Int = 0): String {
+        val negative = value < 0
+        val absolute = if (negative) -value else value
+        val text = String.format(Locale.US, "%.${decimals}f", absolute)
+        val whole = text.substringBefore('.')
+        val fraction = text.substringAfter('.', "")
+        val grouped = groupIndian(whole) + if (fraction.isEmpty()) "" else ".$fraction"
+        return if (negative) "-$grouped" else grouped
+    }
+
+    private fun groupIndian(digits: String): String {
+        if (digits.length <= 3) return digits
+        val groups = ArrayList<String>()
+        var index = digits.length
+        groups += digits.substring(maxOf(0, index - 3), index)
+        index -= 3
+        while (index > 0) {
+            val take = minOf(2, index)
+            groups += digits.substring(index - take, index)
+            index -= take
+        }
+        return groups.reversed().joinToString(",")
     }
 
     /** "12.4k" style compact numbers for tight chart labels. */
