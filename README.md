@@ -1,6 +1,6 @@
 # SajiloPOS
 
-**Offline-first Point of Sale & inventory management for small businesses in Nepal** — retail, restaurant and public transport — built Android-first for phones and vendor-supplied tablets.
+**Offline-first Point of Sale & inventory management for small retail businesses in Nepal** — built Android-first for phones and vendor-supplied tablets.
 
 SajiloPOS is designed for the Nepali micro-entrepreneur: it keeps selling through load shedding, prints to cheap Bluetooth thermal printers, accepts eSewa / Fonepay / Khalti QR payments, and produces IRD-audit-ready invoices — with no monthly subscription and no server dependency.
 
@@ -22,6 +22,8 @@ SajiloPOS is designed for the Nepali micro-entrepreneur: it keeps selling throug
 - [Getting started](#getting-started)
 - [Project structure](#project-structure)
 - [Data model](#data-model)
+- [Backend API (Django)](#backend-api-django)
+- [Data pipeline (Python)](#data-pipeline-python)
 - [Testing](#testing)
 - [What works today vs. what is stubbed](#what-works-today-vs-what-is-stubbed)
 - [Roadmap](#roadmap)
@@ -209,7 +211,7 @@ ExtraBold display and money figures, generous whitespace, hairline borders.
 2. Select the `app` run configuration and press **Run**.
 
 > The Gradle wrapper (`gradlew`, `gradle/wrapper/gradle-wrapper.jar`, Gradle 9.3.1)
-> ships with the repo, so `./gradlew` works out of the box — no separate Gradle
+> ships with the repo, so `cd android_app && ./gradlew` works out of the box — no separate Gradle
 > install needed. Android Studio will use it automatically on sync.
 
 ### Configuration
@@ -230,23 +232,29 @@ All business settings live in the app (Settings tab) and persist to `SharedPrefe
 
 ```
 SajiloPOS/
-├── app/src/main/java/com/example/
-│   ├── MainActivity.kt                  App shell: nav rail/bar, top bar, modals
-│   ├── data/
-│   │   ├── analytics/Analytics.kt       Pure analytics + restock maths
-│   │   ├── local/                       Room DB, DAOs, projections, demo catalog
-│   │   ├── model/PosModels.kt           Entities + domain models
-│   │   └── repository/PosRepository.kt  Data access façade
-│   └── ui/
-│       ├── components/                  DesignSystem, Charts, scanner, payment, receipt, QR
-│       ├── screens/                     Pos, Insights, Inventory, Transactions, Settings
-│       ├── theme/                       Color, Type, Shape, Theme
-│       ├── util/Format.kt               Money, dates and Nepali formatting
-│       └── viewmodel/PosViewModel.kt    State, cart maths, orchestration
-├── app/src/main/res/font/               Bundled Inter + Manrope (variable)
-├── app/src/test/…                       Analytics + formatting unit tests
-├── third_party_fonts/                   OFL licence texts
-└── gradle/libs.versions.toml            Version catalog
+├── android_app/                         Android POS app (self-contained Gradle project)
+│   ├── app/src/main/java/com/example/
+│   │   ├── MainActivity.kt              App shell: nav rail/bar, top bar, modals
+│   │   ├── data/
+│   │   │   ├── analytics/Analytics.kt   Pure analytics + restock maths
+│   │   │   ├── local/                   Room DB, DAOs, projections, demo catalog
+│   │   │   ├── model/PosModels.kt       Entities + domain models
+│   │   │   └── repository/PosRepository.kt  Data access façade
+│   │   └── ui/
+│   │       ├── components/              DesignSystem, Charts, scanner, payment, receipt, QR
+│   │       ├── screens/                 Pos, Insights, Inventory, Transactions, Settings
+│   │       ├── theme/                   Color, Type, Shape, Theme
+│   │       ├── util/Format.kt           Money, dates and Nepali formatting
+│   │       └── viewmodel/PosViewModel.kt  State, cart maths, orchestration
+│   ├── app/src/main/res/font/           Bundled Inter + Manrope (variable)
+│   ├── app/src/test/…                   Analytics + formatting unit tests
+│   └── gradle/libs.versions.toml        Version catalog
+├── api/                                 Django backend (multi-store sync API)
+├── data_pipeline/                       Pandas/Streamlit analytics dashboard
+├── prototype/index.html                 Clickable UI prototype
+├── technical_design.html                Architecture slideshow
+├── instruction.md                       Run/build/test walkthrough
+└── third_party_fonts/                   OFL licence texts
 ```
 
 ---
@@ -266,7 +274,7 @@ Sales are written in one transaction with their line items, and stock is decreme
 ## Testing
 
 ```bash
-./gradlew test          # JVM unit tests
+cd android_app && ./gradlew test          # JVM unit tests
 ./gradlew connectedAndroidTest   # instrumented tests (device required)
 ```
 
@@ -313,7 +321,7 @@ Aligned with the requirement analysis document:
 
 ## Known gaps
 
-1. **Command-line builds work out of the box** — the Gradle wrapper ships in the repo (`./gradlew assembleDebug`). See [`instruction.md`](instruction.md) for the full run/build/test walkthrough.
+1. **Command-line builds work out of the box** — the Gradle wrapper ships in the repo (`cd android_app && ./gradlew assembleDebug`). See [`instruction.md`](instruction.md) for the full run/build/test walkthrough.
 2. **Payment gateway calls are simulated**, not live (needs merchant credentials).
 3. **No BLE printer socket** — printing relies on `PrintManager`.
 4. **Namespace is `com.example`** — rename to your own domain before publishing.

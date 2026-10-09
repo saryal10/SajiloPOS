@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SajiloPOS Android App — Technical Design</title>
+<style>
+  :root{
+    --teal:#0E7C63; --teal-deep:#0A5D4C; --emerald:#10B981;
+    --indigo:#6366F1; --violet:#8B5CF6; --pink:#EC4899;
+    --amber:#E9A13B; --sky:#0EA5E9; --ink:#12202B;
+    --muted:#63737F; --faint:#95A3AE; --line:#E7ECEF;
+    --paper:#F7F9FA; --card:#FFFFFF;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--paper); color:var(--ink); height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    background:linear-gradient(120deg,var(--teal-deep),var(--teal) 45%,var(--emerald));
+    color:#fff; padding:18px 32px; display:flex; align-items:center; gap:16px; flex:0 0 auto;
+  }
+  header .logo{
+    width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;
+  }
+  header h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+  header p.byline{margin:4px 0 0;font-size:12px;font-weight:600;opacity:.95}
+  header p.byline::before{content:"✎ ";opacity:.8}
+  header .counter{margin-left:auto;font-family:var(--mono);font-size:13px;background:rgba(255,255,255,.16);
+    padding:6px 14px;border-radius:99px;white-space:nowrap}
+  .layout{flex:1;display:flex;min-height:0}
+  nav.rail{
+    width:250px;flex:0 0 auto;background:var(--card);border-right:1px solid var(--line);
+    overflow-y:auto;padding:16px 12px;
+  }
+  nav.rail button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
+    padding:9px 12px;border-radius:10px;font-size:13.5px;color:var(--muted);cursor:pointer;font-weight:600;
+  }
+  nav.rail button .n{
+    width:22px;height:22px;flex:0 0 22px;border-radius:7px;background:#EEF3F5;color:var(--muted);
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  nav.rail button:hover{background:#F1F5F7;color:var(--ink)}
+  nav.rail button.active{background:linear-gradient(120deg,var(--indigo),var(--violet));color:#fff}
+  nav.rail button.active .n{background:rgba(255,255,255,.22);color:#fff}
+  main{flex:1;overflow-y:auto;padding:36px 44px;min-width:0}
+  .slide{display:none;max-width:960px;animation:fade .28s ease}
+  .slide.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .kicker{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin:0 0 8px}
+  h2{margin:0 0 10px;font-size:30px;letter-spacing:-.03em}
+  .lede{font-size:15.5px;color:var(--muted);max-width:720px;margin:0 0 24px;line-height:1.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.55}
+  .card code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;font-size:13.5px}
+  th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    padding:12px 16px;background:#F2F5F7;border-bottom:1px solid var(--line)}
+  td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+  tr:last-child td{border-bottom:0}
+  td code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  td.fn{white-space:nowrap}
+  ul.tight{margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.7;color:#2A3B47}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0 20px}
+  .flow .node{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;
+    font-size:13px;min-width:0}
+  .flow .node b{display:block;font-size:13.5px}
+  .flow .node span{color:var(--muted);font-size:12px}
+  .flow .arrow{align-self:center;padding:0 10px;color:var(--violet);font-weight:800;font-size:18px}
+  .pill{display:inline-block;font-size:11.5px;font-weight:700;background:#EEF0FF;color:var(--indigo);
+    border-radius:99px;padding:3px 10px;margin:2px 4px 2px 0}
+  footer{
+    flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:14px 28px;
+    background:var(--card);border-top:1px solid var(--line);
+  }
+  footer button{
+    border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 16px;
+    font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;max-width:44%;
+  }
+  footer button:hover:not(:disabled){border-color:var(--teal);color:var(--teal-deep)}
+  footer button:disabled{opacity:.4;cursor:default}
+  footer button small{display:block;font-size:10.5px;font-weight:600;color:var(--faint);max-width:220px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #prevBtn{flex-direction:row}
+  #nextBtn{margin-left:auto;flex-direction:row-reverse;text-align:right;background:var(--ink);color:#fff;border-color:var(--ink)}
+  #nextBtn small{color:#B9C6CE}
+  #nextBtn:hover:not(:disabled){background:var(--teal-deep);border-color:var(--teal-deep);color:#fff}
+  .dots{display:flex;gap:7px;justify-content:center}
+  .dots button{width:9px;height:9px;border-radius:99px;border:0;background:#D6DEE3;padding:0;cursor:pointer}
+  .dots button.active{background:linear-gradient(120deg,var(--indigo),var(--pink));width:26px}
+  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  @media (max-width:860px){
+    nav.rail{display:none}
+    main{padding:24px 20px}
+    .grid2{grid-template-columns:1fr}
+    footer button small{display:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">स</div>
+  <div>
+    <h1>SajiloPOS Android App — Technical Design</h1>
+    <p>Retail-only POS · offline-first · Kotlin + Jetpack Compose + Room</p>
+    <p class="byline">Author: Subodh Sharma</p>
+  </div>
+  <div class="counter" id="counter">1 / 14</div>
+</header>
+
+<div class="layout">
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+  <main id="stage">
+
+    <section class="slide" data-title="Overview">
+      <p class="kicker">Section 1 · Product</p>
+      <h2>Offline-first point of sale for Nepali retail</h2>
+      <p class="lede">The Android app runs the whole shop counter on-device: catalog, cart,
+      checkout, receipts and analytics work with no network. Retail-only scope — no
+      business-type switching. Native Kotlin UI with Jetpack Compose Material 3.</p>
+      <div class="grid2">
+        <div class="card"><h3>Stack</h3><p>Kotlin <code>2.2.10</code>, Compose BOM <code>2024.09.00</code>, AGP <code>9.1.1</code>, <code>minSdk 24</code> / <code>targetSdk 36</code>, Room <code>2.7.0</code>, CameraX <code>1.5.0</code> + ZXing.</p></div>
+        <div class="card"><h3>Money &amp; locale</h3><p>Nepalese rupees (<code>रू</code>), 13% VAT, 10% optional service charge, Indian digit grouping (<code>रू 1,25,000</code>), Devanagari product names.</p></div>
+        <div class="card"><h3>Payments</h3><p>Cash with change math plus eSewa, Fonepay and Khalti dynamic QR with gateway verification before a sale settles.</p></div>
+        <div class="card"><h3>Quality bar</h3><p><code>73</code> unit tests green across 8 files, KSP-verified Room queries, emulator-verified screens, bundled offline fonts (Manrope + Inter).</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Architecture">
+      <p class="kicker">Section 2 · Structure</p>
+      <h2>MVVM with unidirectional data flow</h2>
+      <p class="lede">Composables are stateless renderers. All state lives in one
+      <code>PosViewModel</code>, fed by <code>PosRepository</code>, fed by Room. Events flow
+      up as lambdas; state flows down as <code>StateFlow</code>.</p>
+      <div class="flow">
+        <div class="node"><b>UI layer</b><span>screens + components<br>stateless @Composable</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>PosViewModel</b><span>StateFlows, cart math<br>payment state machine</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>PosRepository</b><span>settings, invoices<br>sale transactions</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>Room / SQLite</b><span>products · transactions<br>sale_items</span></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h3>Pure logic stays pure</h3><p><code>AnalyticsEngine</code> and <code>Format</code> are plain Kotlin objects with zero Android dependencies — fully unit-testable on the JVM.</p></div>
+        <div class="card"><h3>Side effects stay local</h3><p>Printing, sharing, clipboard and camera live in thin component-level helpers, never in the ViewModel.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="App Entry & Navigation">
+      <p class="kicker">Section 3 · Shell · <code>MainActivity.kt</code></p>
+      <h2>One activity, five tabs, two layouts</h2>
+      <p class="lede"><code>MainAppContent()</code> collects ViewModel state once and fans it out
+      to tabs, dialogs and the top bar. No navigation library — a single
+      <code>selectedTab</code> state switches destinations.</p>
+      <table>
+        <tr><th>Piece</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>PosTab</code> enum</td><td>SALE (“Sell”), INSIGHTS, INVENTORY (“Stock”), TRANSACTIONS (“History”), SETTINGS — each with title + icon.</td></tr>
+        <tr><td class="fn"><code>AppTopBar()</code></td><td>Tab title, shop name, low-stock chip → Stock, static “Retail Store” badge (retail-only, no switcher).</td></tr>
+        <tr><td class="fn"><code>BoxWithConstraints ≥ 680dp</code></td><td>Tablet landscape gets a dual pane (catalog + live cart); phones get catalog + floating cart bar + bottom-sheet cart.</td></tr>
+        <tr><td class="fn">Global dialogs</td><td>Barcode scanner, payment and receipt modals live at the shell level so any tab can trigger them.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Data Models">
+      <p class="kicker">Section 4 · <code>data/model/PosModels.kt</code></p>
+      <h2>Small, explicit models</h2>
+      <p class="lede">Room entities carry persistence; plain data classes carry UI math. Completed sales
+      are immutable facts — nothing is ever edited, only appended.</p>
+      <table>
+        <tr><th>Model</th><th>Role &amp; key rules</th></tr>
+        <tr><td class="fn"><code>ProductItem</code> @Entity</td><td>Catalog row: name, Nepali name, barcode, category, price, cost, stock, threshold, unit, industry mode.</td></tr>
+        <tr><td class="fn"><code>CartItem</code></td><td>Transient line: product + qty + concession + notes; computes <code>unitPriceAfterDiscount</code> and <code>itemTotal</code>.</td></tr>
+        <tr><td class="fn"><code>SaleTransaction</code> @Entity</td><td>Immutable receipt: invoice no, totals, method, status, ref, cash tendered/change, item summary.</td></tr>
+        <tr><td class="fn"><code>SaleLineItem</code> @Entity</td><td>One physical line per sale — powers top-sellers, velocity, COGS and restock without parsing text.</td></tr>
+        <tr><td class="fn"><code>BusinessSettings</code></td><td>Shop profile, PAN/VAT, 13% VAT + 10% service-charge toggles, paper width, currency, industry (always retail).</td></tr>
+        <tr><td class="fn"><code>PaymentMethod</code> / <code>IndustryMode</code></td><td>Enums with display names, codes and short labels; <code>fromCode()</code> falls back to cash.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Local Database">
+      <p class="kicker">Section 5 · <code>data/local/AppDatabase.kt</code></p>
+      <h2>Room v2, migrated — never wiped</h2>
+      <p class="lede">Three entities (<code>ProductItem</code>, <code>SaleTransaction</code>,
+      <code>SaleLineItem</code>) with an explicit <code>MIGRATION_1_TO_2</code> plus destructive
+      fallback. Seeded on first launch with a 20-product Nepali demo catalog.</p>
+      <ul class="tight">
+        <li>Single <code>sajilo_pos_database</code> file — the shop survives load-shedding; history persists across updates.</li>
+        <li>KSP compiler validates every <code>@Query</code> at build time; a bad query fails compilation, not runtime.</li>
+        <li>All DAO reads return <code>Flow</code>, so the UI refreshes itself the moment data changes.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="DAOs">
+      <p class="kicker">Section 6 · <code>data/local/PosDaos.kt</code></p>
+      <h2>Three focused DAOs</h2>
+      <table>
+        <tr><th>DAO</th><th>Representative queries</th></tr>
+        <tr><td class="fn"><code>ProductDao</code></td><td><code>getAllProducts()</code>, <code>getProductsByIndustry()</code>, <code>findByBarcode()</code>, trilingual <code>searchProducts()</code> (name / Nepali / barcode), <code>getLowStockProducts()</code>, stock <code>UPDATE … MAX(0, …)</code> so inventory can never go negative.</td></tr>
+        <tr><td class="fn"><code>TransactionDao</code></td><td>Newest-first history, lookup by id/invoice, <code>SUM(grandTotal)</code> + <code>COUNT(*)</code> since a timestamp, <code>countInvoicesWithPrefix()</code> for sequential invoice numbers.</td></tr>
+        <tr><td class="fn"><code>AnalyticsDao</code></td><td><code>dailySalesSince()</code>, <code>paymentMixSince()</code>, <code>topItemsSince(limit)</code>, <code>salesVelocitySince()</code>, <code>marginSince()</code> — all real SQL aggregations over <code>sale_items</code>.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Repository">
+      <p class="kicker">Section 7 · <code>data/repository/PosRepository.kt</code></p>
+      <h2>One façade over database + preferences</h2>
+      <table>
+        <tr><th>Function group</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>settingsFlow / updateSettings</code></td><td>Shop profile persisted in SharedPreferences, exposed as a hot flow.</td></tr>
+        <tr><td class="fn"><code>get*/search*/save*/delete*/adjustStock</code></td><td>Thin, named pass-throughs over the DAOs — the ViewModel never touches a DAO.</td></tr>
+        <tr><td class="fn"><code>recordSale(…)</code></td><td>The money path: builds <code>INV-YYYYMMDD-####</code> invoice numbers, writes the transaction + line items, decrements stock — atomically.</td></tr>
+        <tr><td class="fn"><code>dailySalesSince / paymentMixSince / topItemsSince / …</code></td><td>Analytics façade consumed by the Insights snapshot builder.</td></tr>
+        <tr><td class="fn"><code>seedSampleDataIfNeeded / resetCatalogToDefaults</code></td><td>First-launch demo catalog and the Settings “reload demo data” action.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="ViewModel & State">
+      <p class="kicker">Section 8 · <code>ui/viewmodel/PosViewModel.kt</code></p>
+      <h2>Every screen reads from here</h2>
+      <p class="lede">Hot <code>StateFlow</code>s for settings, products, cart, dialogs, verification and the
+      <code>InsightsSnapshot</code> (revenue, orders, profit, deltas, goal progress, 30-day trend).
+      Derived money (<code>cartSubtotal → serviceChargeAmount → vatAmount → grandTotal</code>) is computed, never stored.</p>
+      <div>
+        <span class="pill">addToCart / increment / decrement / remove / clearCart</span>
+        <span class="pill">openPaymentDialog · selectPaymentMethod · verifyDigitalPayment</span>
+        <span class="pill">completeCashSale · setCashTendered</span>
+        <span class="pill">openBarcodeScanner · openIntakeScanner · scanBarcode</span>
+        <span class="pill">saveProduct · deleteProduct · adjustStock · applyRestockSuggestion</span>
+        <span class="pill">setInsightRange · updateBusinessSettings · openReprintReceipt</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Analytics Engine">
+      <p class="kicker">Section 9 · <code>data/analytics/Analytics.kt</code></p>
+      <h2>Pure math, zero Android</h2>
+      <p class="lede"><code>AnalyticsEngine</code> is a stateless object — same input, same output, testable
+      on plain JVM. It turns raw DAO rows into everything Insights renders.</p>
+      <table>
+        <tr><th>Function</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>buildDailySeries()</code></td><td>Fills missing days so charts never lie about zero-sale days.</td></tr>
+        <tr><td class="fn"><code>buildPaymentMix()</code></td><td>Cash/eSewa/Fonepay/Khalti revenue shares for the donut.</td></tr>
+        <tr><td class="fn"><code>buildRestockSuggestions()</code></td><td>14-day sales velocity → days of cover → order quantity against supplier lead time.</td></tr>
+        <tr><td class="fn"><code>urgencyFor() / ceilToInt()</code></td><td>Buckets <code>OUT_OF_STOCK → STOCKOUT_SOON → WATCH → PLENTY</code>; rounds order quantities up.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Sell Screen">
+      <p class="kicker">Section 10 · <code>ui/screens/PosScreen.kt</code></p>
+      <h2>Scanning is the hero</h2>
+      <p class="lede">The merchant's #1 motion — point at a barcode — owns the top of the screen as a
+      full-width gradient <code>ScanHero</code> that simply says SCAN, followed by the Today strip,
+      search, category pills and the product grid.</p>
+      <table>
+        <tr><th>Piece</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>ScanHero</code></td><td>Indigo→violet→pink gradient card; tap → <code>openBarcodeScanner()</code>. One icon, one word.</td></tr>
+        <tr><td class="fn"><code>TodayStrip</code></td><td>Brand-gradient revenue card → Insights; keeps the day's pulse one tap away.</td></tr>
+        <tr><td class="fn"><code>ProductCard</code> + <code>StockMeter</code></td><td>Category-tinted tile with initial avatar, price in category color, slim stock bar when low, solid add button.</td></tr>
+        <tr><td class="fn"><code>FloatingCartBar</code></td><td>Gradient bar with item count + total + white Pay pill; tablet gets a docked <code>CartPanel</code> instead.</td></tr>
+        <tr><td class="fn"><code>CatalogSection</code></td><td>Search, category pills, adaptive product grid. Retail-only.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Checkout & Payments">
+      <p class="kicker">Section 11 · <code>ui/components/PaymentModal.kt</code></p>
+      <h2>Four rails, one verified settle</h2>
+      <table>
+        <tr><th>Piece</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>PaymentModal</code></td><td>Amount-due hero, <code>LazyMethodGrid</code>, per-method panel, change math, completion CTA.</td></tr>
+        <tr><td class="fn"><code>LazyMethodGrid</code></td><td>Compact tiles (Cash / Fonepay / eSewa / Khalti) with per-rail hint line; selection tints the tile.</td></tr>
+        <tr><td class="fn"><code>CashPaymentPanel</code></td><td>Tendered input, Exact/+50/+100/+500 chips, live change-due, short-payment guard.</td></tr>
+        <tr><td class="fn"><code>DigitalWalletPanel</code></td><td>Dynamic QR (<code>QrCodeCanvas</code>), <code>verifyDigitalPayment()</code> polling state machine, success → <code>recordSale()</code> → receipt.</td></tr>
+        <tr><td class="fn"><code>completeCashSale()</code></td><td>Validates tendered ≥ total, records the sale, opens the thermal receipt.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Receipts & Scanner">
+      <p class="kicker">Section 12 · Printing + capture</p>
+      <h2>Paper trail and barcode intake</h2>
+      <div class="grid2">
+        <div class="card"><h3><code>ThermalReceiptModal</code></h3><p>58/80mm IRD-compliant receipt preview (<code>ReceiptLine</code>, <code>ReceiptDivider</code>), totals + VAT block, verification QR, then <b>Print</b> (Android PrintManager), <b>Share</b> (text intent) or raw <b>ESC/POS copy</b> for Bluetooth thermal printers.</p></div>
+        <div class="card"><h3><code>BarcodeScannerModal</code></h3><p>CameraX preview + ZXing decode, runtime permission flow, torch toggle, manual barcode entry, demo barcodes for training. Dual purpose via <code>ScannerPurpose</code>: <code>SALE</code> adds to cart (creating the product if unknown); <code>INTAKE</code> fills the Stock editor's SKU field.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Insights & Inventory">
+      <p class="kicker">Section 13 · Analytics + stock</p>
+      <h2>Decisions, not just numbers</h2>
+      <div class="grid2">
+        <div class="card"><h3><code>InsightsScreen</code></h3><p>Range pills (Today / 7 / 30 days) → <code>InsightsSnapshot</code>: revenue / profit / orders / stock-value <code>StatCard</code>s with sparklines, <code>SalesTrendChart</code> with peak-day marker, <code>PaymentDonut</code> + legend, best-sellers with share bars, smart-restock list with one-tap <code>applyRestockSuggestion()</code>.</p></div>
+        <div class="card"><h3><code>InventoryScreen</code></h3><p>Retail-scoped catalog, trilingual search, category pills, low-stock filter, per-row stock pill + margin + quick-adjust steppers, <code>ProductEditorDialog</code> (name, Nepali name, category, unit, prices, quantity, threshold, <b>barcode with scan button</b>), delete confirmation, add FAB. Plus <code>TransactionsScreen</code> (search, payment filters, reprint) and <code>SettingsScreen</code> (profile, PAN/VAT, toggles, paper width).</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Design System, Utils, Tests & Build">
+      <p class="kicker">Section 14 · Foundations</p>
+      <h2>Tokens, helpers, proof</h2>
+      <div class="grid2">
+        <div class="card"><h3>Theme &amp; components</h3><p><code>Color.kt</code> (brand, vivid spectrum, <code>accentFor(category)</code>), <code>Gradient.kt</code> (<code>brand/hero/warm/cool/spectrum</code>), Manrope + Inter in <code>Type.kt</code>, <code>Shape.kt</code> spacing. Reusable kit: <code>PosCard</code>, <code>SoftPill</code>, <code>PrimaryButton</code>, <code>RingGauge</code>, <code>Sparkline</code>, <code>AvatarBadge</code>, <code>StatusPill</code>, <code>EmptyState</code>…</p></div>
+        <div class="card"><h3><code>Format</code> utils</h3><p><code>money()</code> with <code>रू</code>, hand-rolled Indian grouping (<code>groupIndian</code> — JDK <code>en-IN</code> still groups Western-style), <code>compact()</code>, <code>percent()</code>, <code>relative()</code> timestamps, day-window math.</p></div>
+        <div class="card"><h3>Testing — 73 green</h3><p><code>AnalyticsEngineTest</code>, <code>RestockPredictionTest</code>, <code>CartPricingTest</code>, <code>CatalogIntegrityTest</code>, <code>FormatTest</code>, <code>BundledAssetsTest</code> + example suites. Pure-logic design keeps everything JVM-testable.</p></div>
+        <div class="card"><h3>Build</h3><p>AGP <code>9.1.1</code>, Kotlin <code>2.2.10</code>, Compose BOM <code>2024.09.00</code>, Room <code>2.7.0</code> via KSP, CameraX <code>1.5.0</code>, ZXing core. Debug keystore + wrapper jar committed for one-command builds.</p></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <button id="prevBtn"><span aria-hidden="true">←</span><span><span id="prevLabel">Previous</span><small id="prevName"></small></span></button>
+  <div class="dots" id="dots"></div>
+  <button id="nextBtn"><span aria-hidden="true">→</span><span><span id="nextLabel">Next</span><small id="nextName"></small></span></button>
+</footer>
+<p class="hint" style="text-align:center;padding:0 0 10px;margin:0">Tip: use ← → keys or tap a section on the left</p>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var rail = document.getElementById('rail');
+  var dots = document.getElementById('dots');
+  var counter = document.getElementById('counter');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var prevLabel = document.getElementById('prevLabel');
+  var prevName = document.getElementById('prevName');
+  var nextLabel = document.getElementById('nextLabel');
+  var nextName = document.getElementById('nextName');
+  var idx = 0;
+
+  slides.forEach(function(s, i){
+    var title = s.getAttribute('data-title');
+    var b = document.createElement('button');
+    b.innerHTML = '<span class="n">' + (i+1) + '</span><span>' + title + '</span>';
+    b.addEventListener('click', function(){ go(i); });
+    rail.appendChild(b);
+    var d = document.createElement('button');
+    d.setAttribute('aria-label', 'Go to ' + title);
+    d.addEventListener('click', function(){ go(i); });
+    dots.appendChild(d);
+  });
+  var railBtns = Array.prototype.slice.call(rail.children);
+  var dotBtns = Array.prototype.slice.call(dots.children);
+
+  function go(i){
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function(s, k){ s.classList.toggle('active', k === idx); });
+    railBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    dotBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    counter.textContent = (idx + 1) + ' / ' + slides.length;
+    var hasPrev = idx > 0, hasNext = idx < slides.length - 1;
+    prevBtn.disabled = !hasPrev;
+    nextBtn.disabled = !hasNext;
+    prevName.textContent = hasPrev ? slides[idx-1].getAttribute('data-title') : '';
+    nextName.textContent = hasNext ? slides[idx+1].getAttribute('data-title') : '';
+    document.getElementById('stage').scrollTop = 0;
+  }
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') go(idx + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(idx - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+  });
+  var tx = null;
+  document.getElementById('stage').addEventListener('touchstart', function(e){ tx = e.touches[0].clientX; }, {passive:true});
+  document.getElementById('stage').addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (dx < -60) go(idx + 1); else if (dx > 60) go(idx - 1);
+  }, {passive:true});
+  go(0);
+})();
+</script>
+</body>
+</html>

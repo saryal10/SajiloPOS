@@ -58,3 +58,18 @@ captures/
 .DS_Store
 Thumbs.db
 *.swp
+# ---------------------------------------------------------------------------
+# SajiloPOS data pipeline (local-only artefacts — code and docs ARE committed)
+# ---------------------------------------------------------------------------
+data_pipeline/.venv/
+data_pipeline/data/
+data_pipeline/output/
+data_pipeline/.env
+__pycache__/
+
+# ---------------------------------------------------------------------------
+# SajiloPOS backend API (local-only artefacts)
+# ---------------------------------------------------------------------------
+api/.venv/
+api/db.sqlite3
+api/.env
