@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SajiloPOS Data Pipeline — Technical Design</title>
+<style>
+  :root{
+    --teal:#0E7C63; --teal-deep:#0A5D4C; --emerald:#10B981;
+    --indigo:#6366F1; --violet:#8B5CF6; --pink:#EC4899;
+    --amber:#E9A13B; --sky:#0EA5E9; --ink:#12202B;
+    --muted:#63737F; --faint:#95A3AE; --line:#E7ECEF;
+    --paper:#F7F9FA; --card:#FFFFFF;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--paper); color:var(--ink); height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    background:linear-gradient(120deg,var(--teal-deep),var(--teal) 45%,var(--emerald));
+    color:#fff; padding:18px 32px; display:flex; align-items:center; gap:16px; flex:0 0 auto;
+  }
+  header .logo{
+    width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;
+  }
+  header h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+  header p.byline{margin:4px 0 0;font-size:12px;font-weight:600;opacity:.95}
+  header p.byline::before{content:"✎ ";opacity:.8}
+  header .counter{margin-left:auto;font-family:var(--mono);font-size:13px;background:rgba(255,255,255,.16);
+    padding:6px 14px;border-radius:99px;white-space:nowrap}
+  .layout{flex:1;display:flex;min-height:0}
+  nav.rail{
+    width:250px;flex:0 0 auto;background:var(--card);border-right:1px solid var(--line);
+    overflow-y:auto;padding:16px 12px;
+  }
+  nav.rail button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
+    padding:9px 12px;border-radius:10px;font-size:13.5px;color:var(--muted);cursor:pointer;font-weight:600;
+  }
+  nav.rail button .n{
+    width:22px;height:22px;flex:0 0 22px;border-radius:7px;background:#EEF3F5;color:var(--muted);
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  nav.rail button:hover{background:#F1F5F7;color:var(--ink)}
+  nav.rail button.active{background:linear-gradient(120deg,var(--indigo),var(--violet));color:#fff}
+  nav.rail button.active .n{background:rgba(255,255,255,.22);color:#fff}
+  main{flex:1;overflow-y:auto;padding:36px 44px;min-width:0}
+  .slide{display:none;max-width:960px;animation:fade .28s ease}
+  .slide.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .kicker{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin:0 0 8px}
+  h2{margin:0 0 10px;font-size:30px;letter-spacing:-.03em}
+  .lede{font-size:15.5px;color:var(--muted);max-width:720px;margin:0 0 24px;line-height:1.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.55}
+  .card code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;font-size:13.5px}
+  th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    padding:12px 16px;background:#F2F5F7;border-bottom:1px solid var(--line)}
+  td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+  tr:last-child td{border-bottom:0}
+  td code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  td.fn{white-space:nowrap}
+  ul.tight{margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.7;color:#2A3B47}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0 20px}
+  .flow .node{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;
+    font-size:13px;min-width:0}
+  .flow .node b{display:block;font-size:13.5px}
+  .flow .node span{color:var(--muted);font-size:12px}
+  .flow .arrow{align-self:center;padding:0 10px;color:var(--violet);font-weight:800;font-size:18px}
+  .pill{display:inline-block;font-size:11.5px;font-weight:700;background:#EEF0FF;color:var(--indigo);
+    border-radius:99px;padding:3px 10px;margin:2px 4px 2px 0}
+  footer{
+    flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:14px 28px;
+    background:var(--card);border-top:1px solid var(--line);
+  }
+  footer button{
+    border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 16px;
+    font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;max-width:44%;
+  }
+  footer button:hover:not(:disabled){border-color:var(--teal);color:var(--teal-deep)}
+  footer button:disabled{opacity:.4;cursor:default}
+  footer button small{display:block;font-size:10.5px;font-weight:600;color:var(--faint);max-width:220px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #prevBtn{flex-direction:row}
+  #nextBtn{margin-left:auto;flex-direction:row-reverse;text-align:right;background:var(--ink);color:#fff;border-color:var(--ink)}
+  #nextBtn small{color:#B9C6CE}
+  #nextBtn:hover:not(:disabled){background:var(--teal-deep);border-color:var(--teal-deep);color:#fff}
+  .dots{display:flex;gap:7px;justify-content:center}
+  .dots button{width:9px;height:9px;border-radius:99px;border:0;background:#D6DEE3;padding:0;cursor:pointer}
+  .dots button.active{background:linear-gradient(120deg,var(--indigo),var(--pink));width:26px}
+  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  @media (max-width:860px){
+    nav.rail{display:none}
+    main{padding:24px 20px}
+    .grid2{grid-template-columns:1fr}
+    footer button small{display:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">स</div>
+  <div>
+    <h1>SajiloPOS Data Pipeline — Technical Design</h1>
+    <p>Fetch → analyze → dashboard · pandas + matplotlib + Streamlit</p>
+    <p class="byline">Author: Subodh Sharma</p>
+  </div>
+  <div class="counter" id="counter">1 / 10</div>
+</header>
+
+<div class="layout">
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+  <main id="stage">
+
+    <section class="slide" data-title="Overview">
+      <p class="kicker">Section 1 · Product</p>
+      <h2>Shop analytics without touching the app</h2>
+      <p class="lede">A standalone Python pipeline that pulls collected sales data — from the Django
+      API or straight from a Room database file — crunches it with pandas, charts it with
+      matplotlib, and serves an owner-facing Streamlit dashboard. One command runs everything:
+      <code>./start.sh</code>.</p>
+      <div class="grid2">
+        <div class="card"><h3>Two sources, one shape</h3><p>API mode and Room-file mode both normalize into the exact Room column layout, so analysis is identical either way.</p></div>
+        <div class="card"><h3>Offline-friendly</h3><p>DB-file mode needs no server at all — matching the app's offline-first reality. Charts render headless (Agg backend).</p></div>
+        <div class="card"><h3>App-parity maths</h3><p>Restock predictions mirror the Android <code>AnalyticsEngine</code>: 14-day velocity → days of cover → lead-time order qty.</p></div>
+        <div class="card"><h3>Verified live</h3><p>End-to-end run proven against the real API: register → sale → fetch → 7 CSVs + 4 charts + dashboard serving with zero errors.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Architecture">
+      <p class="kicker">Section 2 · Structure</p>
+      <h2>Three stages, file-based handoffs</h2>
+      <p class="lede">Stages communicate only through versioned CSVs on disk — each step is
+      independently re-runnable and inspectable with standard tools.</p>
+      <div class="flow">
+        <div class="node"><b>fetch_data.py</b><span>API client + Room reader<br>→ data/raw/*.csv</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>analyze.py</b><span>pandas aggregates<br>matplotlib charts</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>data/processed/</b><span>7 CSVs + summary.json</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>dashboard.py</b><span>Streamlit tabs<br>+ CSV downloads</span></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h3><code>config.py</code></h3><p>Single source of truth: <code>.env</code> loading, source resolution (API wins when configured), shared paths and analysis knobs (windows, lead time, top-N).</p></div>
+        <div class="card"><h3><code>start.sh</code></h3><p>Creates the venv, installs <code>requirements.txt</code> once (marker file), loads <code>.env</code>, runs fetch → analyze, then launches the dashboard. Flags: <code>--no-dashboard</code>, <code>--reinstall</code>, <code>--db</code>, <code>--api-url</code>, <code>--api-key</code>.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Configuration">
+      <p class="kicker">Section 3 · <code>config.py</code> + <code>.env.example</code></p>
+      <h2>Everything tunable, secrets never hardcoded</h2>
+      <table>
+        <tr><th>Variable</th><th>Default</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>SAJILO_API_URL</code></td><td><i>unset</i></td><td>Backend base URL. When set, API mode wins over DB mode.</td></tr>
+        <tr><td class="fn"><code>SAJILO_API_KEY</code></td><td><i>unset</i></td><td>Store key, sent as HTTP header, never logged.</td></tr>
+        <tr><td class="fn"><code>SAJILO_API_AUTH</code></td><td><code>bearer</code></td><td>Header style: <code>bearer</code> or <code>x-api-key</code>.</td></tr>
+        <tr><td class="fn"><code>SAJILO_DB_PATH</code></td><td><i>unset</i></td><td>Path to a Room <code>.db</code> file for offline mode.</td></tr>
+        <tr><td class="fn"><code>SAJILO_API_SINCE_DAYS</code></td><td><code>365</code></td><td>How far back the API client asks for.</td></tr>
+        <tr><td class="fn"><code>SAJILO_VELOCITY_WINDOW_DAYS</code></td><td><code>14</code></td><td>Sales-velocity window for restock maths.</td></tr>
+        <tr><td class="fn"><code>SAJILO_RESTOCK_LEAD_DAYS</code></td><td><code>7</code></td><td>Supplier lead time for order quantities.</td></tr>
+        <tr><td class="fn"><code>SAJILO_TOP_N / WEEKLY_CHART_WEEKS</code></td><td><code>10 / 12</code></td><td>Dashboard list lengths and chart window.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Fetch: API Mode">
+      <p class="kicker">Section 4 · <code>fetch_data.py</code> — source 1</p>
+      <h2>Tolerant client for a young API</h2>
+      <ul class="tight">
+        <li><b>Endpoint fallback:</b> tries <code>/api/v1/sales/</code> then <code>/transactions/</code>, and <code>/sale-items/</code> → <code>/sale_items/</code> → <code>/lines/</code> — first hit per table wins, 404s are tolerated.</li>
+        <li><b>Response shapes:</b> bare lists or objects wrapping <code>data/items/results/sales/products</code>; camelCase keys accepted and mapped to Room columns.</li>
+        <li><b>Auth errors fail loud:</b> HTTP 401 explains the key is wrong (or the header style), with a hint toward <code>SAJILO_API_AUTH</code>.</li>
+        <li><b>Timestamps:</b> epoch millis, epoch seconds and ISO strings all normalize to one datetime column; the CSV keeps epoch-millis to mirror Room exactly.</li>
+        <li><b>Empty tables are fine:</b> missing tables produce empty frames with a warning — analysis degrades to empty outputs, never a crash.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Fetch: Room Mode">
+      <p class="kicker">Section 5 · <code>fetch_data.py</code> — source 2</p>
+      <h2>Read the device database directly</h2>
+      <p class="lede">Because the app is offline-first, the truth often lives on the phone, not a
+      server. Pull it and point the pipeline at the file:</p>
+      <table>
+        <tr><th>Step</th><th>Detail</th></tr>
+        <tr><td class="fn">Pull</td><td><code>adb pull /data/data/com.aistudio.sajilopos.npqzr/databases/sajilo_pos_database ./sajilo_pos_database.db</code> (needs a rooted device or debuggable build).</td></tr>
+        <tr><td class="fn">Validate</td><td>Opens read-only and checks <code>products / transactions / sale_items</code> exist — anything else is rejected as “not a SajiloPOS database”.</td></tr>
+        <tr><td class="fn">Normalize</td><td>Same column layout as API mode, so every downstream step is source-agnostic.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Analyze">
+      <p class="kicker">Section 6 · <code>analyze.py</code> — pandas + matplotlib</p>
+      <h2>Aggregations the owner actually uses</h2>
+      <table>
+        <tr><th>Output</th><th>What it contains</th></tr>
+        <tr><td class="fn"><code>daily.csv</code></td><td>Gap-free series — quiet days are zeros, not holes — with revenue, orders, VAT, profit, avg ticket + 7-day rolling average on the chart.</td></tr>
+        <tr><td class="fn"><code>weekly.csv / monthly.csv</code></td><td>Resampled buckets for the bar charts (last N weeks configurable).</td></tr>
+        <tr><td class="fn"><code>top_products.csv</code></td><td>Units, revenue, profit and share per item, top-N.</td></tr>
+        <tr><td class="fn"><code>payment_mix.csv</code></td><td>Cash / eSewa / Fonepay / Khalti revenue, orders and share.</td></tr>
+        <tr><td class="fn"><code>restock.csv</code></td><td>Velocity → days of cover → suggested qty with <code>OUT_OF_STOCK / STOCKOUT_SOON / WATCH / PLENTY</code> urgency.</td></tr>
+        <tr><td class="fn"><code>category_summary.csv / summary.json</code></td><td>Per-category revenue + stock value; headline totals for the dashboard.</td></tr>
+      </table>
+      <p class="lede">Charts (<code>revenue_trend / weekly_bars / payment_mix / top_products .png</code>, 150 dpi) use an ASCII “Rs” label because matplotlib fonts lack Devanagari glyphs — the app glyph <code>रू</code> would render as tofu.</p>
+    </section>
+
+    <section class="slide" data-title="Dashboard">
+      <p class="kicker">Section 7 · <code>dashboard.py</code> — Streamlit</p>
+      <h2>Five tabs for the shop owner</h2>
+      <div>
+        <span class="pill">Overview (KPIs + trend + mix + top-5)</span>
+        <span class="pill">Sales (daily table + weekly bars + monthly)</span>
+        <span class="pill">Products (best sellers + category revenue)</span>
+        <span class="pill">Inventory (stock levels + restock list)</span>
+        <span class="pill">VAT &amp; Export (13% summary + CSV downloads)</span>
+      </div>
+      <ul class="tight">
+        <li><b>Sidebar filters</b> — date range plus category and payment-method multiselects drive every KPI, table and chart.</li>
+        <li><b>Fast by design</b> — CSV/JSON loads are <code>@st.cache_data</code>-cached; the dashboard never re-runs analysis.</li>
+        <li><b>Take the data home</b> — every table has a CSV download button for accountants and suppliers.</li>
+        <li><b>Graceful when empty</b> — no analysis yet, or no sales in range, renders guidance instead of tracebacks.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Runbook">
+      <p class="kicker">Section 8 · Operating it</p>
+      <h2>One command, honest failures</h2>
+      <div class="grid2">
+        <div class="card"><h3>Daily use</h3><p><code>cp .env.example .env</code> once, fill in one source, then <code>./start.sh</code> every morning: venv → install (first run only) → fetch → analyze → dashboard.</p></div>
+        <div class="card"><h3>Automation</h3><p><code>./start.sh --no-dashboard --db nightly.db</code> refreshes CSVs + PNGs headlessly for cron jobs and CI.</p></div>
+        <div class="card"><h3>Failure modes</h3><p>Missing source → usage error naming the exact vars. Bad key → 401 with a fix hint. Unreachable host → clean exit naming the URL. Bad DB → “not a SajiloPOS database” naming the missing tables.</p></div>
+        <div class="card"><h3>What commits</h3><p>Code, docs and <code>.env.example</code> only — <code>.venv/</code>, <code>data/</code>, <code>output/</code> and <code>.env</code> are git-ignored.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Verification">
+      <p class="kicker">Section 9 · Proof</p>
+      <h2>Proven against the real backend</h2>
+      <ul class="tight">
+        <li>Generated a 60-day synthetic shop DB (526 sales, 982 lines) with the exact Room schema; DB-mode fetch + analyze produced 7 CSVs + 4 charts with a sane summary.</li>
+        <li>Ran the pipeline in API mode against the live Django server: register → product → sale → fetch → analyze, all green.</li>
+        <li>Caught and fixed two real bugs on the way: an unhashable endpoint table and ISO timestamps wiped by numeric coercion.</li>
+        <li>Dashboard served headless with health-check 200 and zero tracebacks in the log.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Roadmap">
+      <p class="kicker">Section 10 · Next</p>
+      <h2>Small surface, room to grow</h2>
+      <ul class="tight">
+        <li><b>Done:</b> dual-source fetch, normalization, 7 aggregations, 4 charts, 5-tab dashboard, one-command runner, docs.</li>
+        <li><b>Next candidates:</b> scheduled nightly refresh, per-store dashboard URLs, margin-trend chart, PDF export of the VAT summary, anomaly alerts (dead stock, sudden drops).</li>
+        <li><b>Non-goals:</b> turning the dashboard into an editor — writes stay in the app/API; the pipeline only reads.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <button id="prevBtn"><span aria-hidden="true">←</span><span><span id="prevLabel">Previous</span><small id="prevName"></small></span></button>
+  <div class="dots" id="dots"></div>
+  <button id="nextBtn"><span aria-hidden="true">→</span><span><span id="nextLabel">Next</span><small id="nextName"></small></span></button>
+</footer>
+<p class="hint" style="text-align:center;padding:0 0 10px;margin:0">Tip: use ← → keys or tap a section on the left</p>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var rail = document.getElementById('rail');
+  var dots = document.getElementById('dots');
+  var counter = document.getElementById('counter');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var prevLabel = document.getElementById('prevLabel');
+  var prevName = document.getElementById('prevName');
+  var nextLabel = document.getElementById('nextLabel');
+  var nextName = document.getElementById('nextName');
+  var idx = 0;
+
+  slides.forEach(function(s, i){
+    var title = s.getAttribute('data-title');
+    var b = document.createElement('button');
+    b.innerHTML = '<span class="n">' + (i+1) + '</span><span>' + title + '</span>';
+    b.addEventListener('click', function(){ go(i); });
+    rail.appendChild(b);
+    var d = document.createElement('button');
+    d.setAttribute('aria-label', 'Go to ' + title);
+    d.addEventListener('click', function(){ go(i); });
+    dots.appendChild(d);
+  });
+  var railBtns = Array.prototype.slice.call(rail.children);
+  var dotBtns = Array.prototype.slice.call(dots.children);
+
+  function go(i){
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function(s, k){ s.classList.toggle('active', k === idx); });
+    railBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    dotBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    counter.textContent = (idx + 1) + ' / ' + slides.length;
+    var hasPrev = idx > 0, hasNext = idx < slides.length - 1;
+    prevBtn.disabled = !hasPrev;
+    nextBtn.disabled = !hasNext;
+    prevName.textContent = hasPrev ? slides[idx-1].getAttribute('data-title') : '';
+    nextName.textContent = hasNext ? slides[idx+1].getAttribute('data-title') : '';
+    document.getElementById('stage').scrollTop = 0;
+  }
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') go(idx + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(idx - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+  });
+  var tx = null;
+  document.getElementById('stage').addEventListener('touchstart', function(e){ tx = e.touches[0].clientX; }, {passive:true});
+  document.getElementById('stage').addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (dx < -60) go(idx + 1); else if (dx > 60) go(idx - 1);
+  }, {passive:true});
+  go(0);
+})();
+</script>
+</body>
+</html>

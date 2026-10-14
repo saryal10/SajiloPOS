@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SajiloPOS API — Technical Design</title>
+<style>
+  :root{
+    --teal:#0E7C63; --teal-deep:#0A5D4C; --emerald:#10B981;
+    --indigo:#6366F1; --violet:#8B5CF6; --pink:#EC4899;
+    --amber:#E9A13B; --sky:#0EA5E9; --ink:#12202B;
+    --muted:#63737F; --faint:#95A3AE; --line:#E7ECEF;
+    --paper:#F7F9FA; --card:#FFFFFF;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    background:var(--paper); color:var(--ink); height:100vh; display:flex; flex-direction:column;
+  }
+  header{
+    background:linear-gradient(120deg,var(--teal-deep),var(--teal) 45%,var(--emerald));
+    color:#fff; padding:18px 32px; display:flex; align-items:center; gap:16px; flex:0 0 auto;
+  }
+  header .logo{
+    width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;
+  }
+  header h1{margin:0;font-size:20px;letter-spacing:-.02em}
+  header p{margin:2px 0 0;font-size:12.5px;opacity:.85}
+  header p.byline{margin:4px 0 0;font-size:12px;font-weight:600;opacity:.95}
+  header p.byline::before{content:"✎ ";opacity:.8}
+  header .counter{margin-left:auto;font-family:var(--mono);font-size:13px;background:rgba(255,255,255,.16);
+    padding:6px 14px;border-radius:99px;white-space:nowrap}
+  .layout{flex:1;display:flex;min-height:0}
+  nav.rail{
+    width:250px;flex:0 0 auto;background:var(--card);border-right:1px solid var(--line);
+    overflow-y:auto;padding:16px 12px;
+  }
+  nav.rail button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:none;
+    padding:9px 12px;border-radius:10px;font-size:13.5px;color:var(--muted);cursor:pointer;font-weight:600;
+  }
+  nav.rail button .n{
+    width:22px;height:22px;flex:0 0 22px;border-radius:7px;background:#EEF3F5;color:var(--muted);
+    font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;
+  }
+  nav.rail button:hover{background:#F1F5F7;color:var(--ink)}
+  nav.rail button.active{background:linear-gradient(120deg,var(--indigo),var(--violet));color:#fff}
+  nav.rail button.active .n{background:rgba(255,255,255,.22);color:#fff}
+  main{flex:1;overflow-y:auto;padding:36px 44px;min-width:0}
+  .slide{display:none;max-width:960px;animation:fade .28s ease}
+  .slide.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .kicker{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--violet);margin:0 0 8px}
+  h2{margin:0 0 10px;font-size:30px;letter-spacing:-.03em}
+  .lede{font-size:15.5px;color:var(--muted);max-width:720px;margin:0 0 24px;line-height:1.6}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card p{margin:0;font-size:13.5px;color:var(--muted);line-height:1.55}
+  .card code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;font-size:13.5px}
+  th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    padding:12px 16px;background:#F2F5F7;border-bottom:1px solid var(--line)}
+  td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.55}
+  tr:last-child td{border-bottom:0}
+  td code{font-family:var(--mono);font-size:12px;background:#EFF6F3;color:var(--teal-deep);
+    padding:1px 6px;border-radius:6px;white-space:nowrap}
+  td.fn{white-space:nowrap}
+  ul.tight{margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.7;color:#2A3B47}
+  .flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:6px 0 20px}
+  .flow .node{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;
+    font-size:13px;min-width:0}
+  .flow .node b{display:block;font-size:13.5px}
+  .flow .node span{color:var(--muted);font-size:12px}
+  .flow .arrow{align-self:center;padding:0 10px;color:var(--violet);font-weight:800;font-size:18px}
+  .pill{display:inline-block;font-size:11.5px;font-weight:700;background:#EEF0FF;color:var(--indigo);
+    border-radius:99px;padding:3px 10px;margin:2px 4px 2px 0}
+  footer{
+    flex:0 0 auto;display:flex;align-items:center;gap:14px;padding:14px 28px;
+    background:var(--card);border-top:1px solid var(--line);
+  }
+  footer button{
+    border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 16px;
+    font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;max-width:44%;
+  }
+  footer button:hover:not(:disabled){border-color:var(--teal);color:var(--teal-deep)}
+  footer button:disabled{opacity:.4;cursor:default}
+  footer button small{display:block;font-size:10.5px;font-weight:600;color:var(--faint);max-width:220px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #prevBtn{flex-direction:row}
+  #nextBtn{margin-left:auto;flex-direction:row-reverse;text-align:right;background:var(--ink);color:#fff;border-color:var(--ink)}
+  #nextBtn small{color:#B9C6CE}
+  #nextBtn:hover:not(:disabled){background:var(--teal-deep);border-color:var(--teal-deep);color:#fff}
+  .dots{display:flex;gap:7px;justify-content:center}
+  .dots button{width:9px;height:9px;border-radius:99px;border:0;background:#D6DEE3;padding:0;cursor:pointer}
+  .dots button.active{background:linear-gradient(120deg,var(--indigo),var(--pink));width:26px}
+  .hint{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  @media (max-width:860px){
+    nav.rail{display:none}
+    main{padding:24px 20px}
+    .grid2{grid-template-columns:1fr}
+    footer button small{display:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">स</div>
+  <div>
+    <h1>SajiloPOS API — Technical Design</h1>
+    <p>Django + DRF backend · multi-store sync · PostgreSQL prod / SQLite dev</p>
+    <p class="byline">Author: Subodh Sharma</p>
+  </div>
+  <div class="counter" id="counter">1 / 13</div>
+</header>
+
+<div class="layout">
+  <nav class="rail" id="rail" aria-label="Sections"></nav>
+  <main id="stage">
+
+    <section class="slide" data-title="Overview">
+      <p class="kicker">Section 1 · Product</p>
+      <h2>The cloud half of an offline-first system</h2>
+      <p class="lede">The Android app never needs a server — but shops with connectivity get
+      multi-device sync, per-store analytics APIs, and a feed for the Streamlit dashboard.
+      One Django codebase serves all three, with PostgreSQL in production and a zero-setup
+      SQLite file for development.</p>
+      <div class="grid2">
+        <div class="card"><h3>Stack</h3><p>Django <code>&gt;=4.2</code>, DRF <code>&gt;=3.14</code>, <code>psycopg[binary] &gt;=3.1</code>. Python 3.10+. No Celery, no Redis — boring and dependable.</p></div>
+        <div class="card"><h3>Tenancy</h3><p>Every business row carries a store FK. API-key callers can only ever see their own store; cross-store access returns 404, never 403-with-a-hint.</p></div>
+        <div class="card"><h3>App compatibility</h3><p>Field names mirror the Room entities, epoch-millis timestamps are accepted, and endpoint shapes match exactly what <code>data_pipeline/fetch_data.py</code> consumes.</p></div>
+        <div class="card"><h3>Run it</h3><p><code>cp .env.example .env</code> then <code>./start.sh</code> — migrates and serves at <code>http://127.0.0.1:8000</code>. Postgres via <code>docker compose up -d db</code>.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Architecture">
+      <p class="kicker">Section 2 · Structure</p>
+      <h2>One request, one store, one transaction</h2>
+      <p class="lede">Standard DRF layering. Authentication resolves the store first; everything
+      downstream — throttles, querysets, writes — is scoped to it.</p>
+      <div class="flow">
+        <div class="node"><b>shop/urls.py</b><span>routes under /api/v1/</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>shop/auth.py</b><span>store key / token / session<br>→ owner + store</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>throttles</b><span>anon · user · ingest<br>env-tunable rates</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>shop/views.py</b><span>CRUD · bulk ingest<br>analytics</span></div>
+        <div class="arrow">→</div>
+        <div class="node"><b>serializers + ORM</b><span>validation<br>atomic writes</span></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h3><code>config/</code></h3><p><code>settings.py</code> (env-driven DB + throttle rates), <code>urls.py</code> (admin + <code>api/v1/</code> include), WSGI/ASGI entry points.</p></div>
+        <div class="card"><h3><code>shop/</code></h3><p><code>models.py</code>, <code>serializers.py</code>, <code>views.py</code>, <code>urls.py</code>, <code>auth.py</code>, <code>admin.py</code>, <code>apps.py</code>, <code>tests.py</code>, <code>migrations/</code>.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Data Models">
+      <p class="kicker">Section 3 · <code>shop/models.py</code></p>
+      <h2>Room entities, server-side</h2>
+      <p class="lede">Snake-case mirrors of the Android Room tables, so the mobile app and the
+      pipeline sync without a translation layer.</p>
+      <table>
+        <tr><th>Model</th><th>Key fields &amp; rules</th></tr>
+        <tr><td class="fn"><code>Store</code></td><td>name, owner FK, unique <code>api_key</code> (<code>sk_live_…</code>), PAN/VAT, address, phone, currency, VAT rate; <code>rotate_api_key()</code> regenerates.</td></tr>
+        <tr><td class="fn"><code>Product</code></td><td>store FK, <code>external_id</code> (Android id), name, Nepali name, barcode (indexed), category, price, cost, stock, threshold, unit, industry mode.</td></tr>
+        <tr><td class="fn"><code>SaleTransaction</code></td><td>store FK, invoice number, timestamp (indexed), subtotal/discount/service/VAT/total, payment method (indexed) + status, ref, cash tendered/change; <code>unique(store, invoice_number)</code>.</td></tr>
+        <tr><td class="fn"><code>SaleLineItem</code></td><td>sale FK + store FK, optional product FK (<code>SET_NULL</code> so history survives catalog edits), external product id, names, qty, prices, cost total, timestamp.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Auth">
+      <p class="kicker">Section 4 · <code>shop/auth.py</code> + auth views</p>
+      <h2>Two credentials, one store scope</h2>
+      <table>
+        <tr><th>Piece</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>POST auth/register/</code></td><td>Creates user + store in one call; returns login <code>token</code> and the store <code>api_key</code> (shown once).</td></tr>
+        <tr><td class="fn"><code>POST auth/login/</code></td><td>Username + password → token. Wrong password → 401.</td></tr>
+        <tr><td class="fn"><code>StoreAPIKeyAuthentication</code></td><td>Accepts <code>Authorization: Bearer sk_live_…</code> or <code>X-API-Key</code>; authenticates as the owner and carries the store as <code>request.auth</code>.</td></tr>
+        <tr><td class="fn"><code>IsStoreAuthenticated</code></td><td>Default permission: any authenticated credential, nothing anonymous (except health/register/login).</td></tr>
+        <tr><td class="fn"><code>POST stores/regenerate-key/</code></td><td>Rotates the key; the old one dies immediately. Response warns to update app + dashboard.</td></tr>
+        <tr><td class="fn"><code>GET stores/me/</code></td><td>Store profile for the calling credential.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Products API">
+      <p class="kicker">Section 5 · Catalog</p>
+      <h2>CRUD plus bulk upsert</h2>
+      <table>
+        <tr><th>Endpoint</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>GET /products/</code></td><td>Store-scoped list with <code>?search=</code>, <code>?category=</code>, <code>?low_stock=1</code> filters, paginated.</td></tr>
+        <tr><td class="fn"><code>POST /products/</code></td><td>Single object or list; upserts matched on barcode first, else Android <code>external_id</code> — safe to replay a whole catalog.</td></tr>
+        <tr><td class="fn"><code>GET / PATCH / DELETE /products/&lt;id&gt;/</code></td><td>Detail read, partial update, delete. Other stores' ids return 404.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Sales Ingestion">
+      <p class="kicker">Section 6 · The money path</p>
+      <h2>Idempotent by invoice number</h2>
+      <p class="lede"><code>POST /sales/</code> accepts one sale, a bare list, or
+      <code>{"sales": […]}</code> with nested <code>lines</code>. Replays return the existing
+      record (<code>200</code>, no double stock decrement) instead of duplicating it.</p>
+      <ul class="tight">
+        <li><b>Mobile-native timestamps</b> — <code>FlexibleDateTimeField</code> accepts epoch millis, epoch seconds and ISO-8601.</li>
+        <li><b>Line linking</b> — matches catalog products by Android id, then barcode; unlinked lines still store with their names.</li>
+        <li><b>Stock decrement</b> — linked products lose the sold quantity, floored at zero, inside the same DB transaction.</li>
+        <li><b>Atomicity</b> — sale header + lines + stock move together; partial writes are impossible.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Listings & Aliases">
+      <p class="kicker">Section 7 · Reads</p>
+      <h2>Filtered, paginated, pipeline-shaped</h2>
+      <table>
+        <tr><th>Endpoint</th><th>What it does</th></tr>
+        <tr><td class="fn"><code>GET /sales/</code> (+ <code>/transactions/</code> alias)</td><td>Newest-first with <code>?since=</code> (date, ISO or day-count) and <code>?payment_method=</code> filters; lines prefetched.</td></tr>
+        <tr><td class="fn"><code>GET /sale-items/</code> (+ <code>/sale_items/</code>, <code>/lines/</code>)</td><td>Line-level feed with the same <code>?since=</code> filter; emits camelCase <code>transactionId</code> / <code>productId</code> aliases the pipeline joins on.</td></tr>
+        <tr><td class="fn"><code>GET /sales/&lt;id&gt;/</code></td><td>Single receipt with nested lines for reprint-style views.</td></tr>
+      </table>
+    </section>
+
+    <section class="slide" data-title="Analytics">
+      <p class="kicker">Section 8 · <code>GET /analytics/summary/</code></p>
+      <h2>Per-store numbers, server-computed</h2>
+      <p class="lede">One call returns everything the owner dashboard needs; accepts the same
+      <code>?since= / ?days=</code> window as the listings.</p>
+      <div class="grid2">
+        <div class="card"><h3>totals</h3><p><code>revenue</code>, <code>orders</code>, <code>avg_ticket</code>, <code>vat_collected</code>, <code>gross_profit</code>, <code>margin_pct</code> — ORM aggregates, rounded to 2 dp.</p></div>
+        <div class="card"><h3>payment_mix + top_products</h3><p>Revenue/orders/share per method; top 5 items by revenue with units sold.</p></div>
+        <div class="card"><h3>low_stock</h3><p>Count plus the 50 emptiest items, each with a suggested reorder qty (<code>2 × threshold − stock</code>).</p></div>
+        <div class="card"><h3>inventory_value</h3><p><code>SUM(cost × stock)</code> across the catalog.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Rate Limiting">
+      <p class="kicker">Section 9 · Fair use</p>
+      <h2>Throttles with knobs</h2>
+      <table>
+        <tr><th>Scope</th><th>Default</th><th>Applies to</th></tr>
+        <tr><td class="fn"><code>anon</code></td><td><code>100/day</code></td><td>Health, register, login — abuse-resistant but usable.</td></tr>
+        <tr><td class="fn"><code>user</code></td><td><code>2000/day</code></td><td>Authenticated reads (dashboards, polling).</td></tr>
+        <tr><td class="fn"><code>ingest</code></td><td><code>120/minute</code></td><td>Product and sale writes via <code>throttle_scope</code>.</td></tr>
+      </table>
+      <p class="lede">All three rates plus <code>API_PAGE_SIZE</code> (default 100) are overridable
+      in <code>.env</code> without touching code. Pagination uses DRF page-number style.</p>
+    </section>
+
+    <section class="slide" data-title="Ops">
+      <p class="kicker">Section 10 · Running it</p>
+      <h2>SQLite today, Postgres tomorrow</h2>
+      <div class="grid2">
+        <div class="card"><h3>Local dev</h3><p>No <code>POSTGRES_*</code> vars → local <code>db.sqlite3</code>. <code>./start.sh</code> creates the venv, installs, migrates and serves. <code>--no-server</code> migrates only (CI); <code>--reinstall</code> rebuilds the venv.</p></div>
+        <div class="card"><h3>Production DB</h3><p><code>docker compose up -d db</code> starts Postgres 16-alpine with a persisted volume; set the four <code>POSTGRES_*</code> vars and re-run <code>./start.sh</code>.</p></div>
+        <div class="card"><h3>Admin + health</h3><p>Django admin covers all four models (sales show inline lines). <code>GET /health/</code> is the load-balancer check — no auth required.</p></div>
+        <div class="card"><h3>Secrets</h3><p><code>.env</code>, <code>db.sqlite3</code> and <code>.venv/</code> are git-ignored; only code, docs and <code>.env.example</code> commit.</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Testing">
+      <p class="kicker">Section 11 · <code>shop/tests.py</code> — 23 tests</p>
+      <h2>Proven against SQLite</h2>
+      <div>
+        <span class="pill">register creates user + store + key</span>
+        <span class="pill">duplicate username rejected</span>
+        <span class="pill">login ok / bad password 401</span>
+        <span class="pill">anonymous → 401 everywhere</span>
+        <span class="pill">bad key → 401</span>
+        <span class="pill">cross-store list/detail isolation</span>
+        <span class="pill">key rotation kills old key</span>
+        <span class="pill">X-API-Key header works</span>
+        <span class="pill">bulk upsert dedupes on barcode</span>
+        <span class="pill">product CRUD + low-stock filter</span>
+        <span class="pill">ingest links product + decrements stock</span>
+        <span class="pill">replay = no duplicate, no double decrement</span>
+        <span class="pill">epoch-millis accepted</span>
+        <span class="pill">sales filters</span>
+        <span class="pill">line-alias endpoints agree</span>
+        <span class="pill">analytics totals + since window</span>
+        <span class="pill">100-sale bulk perf smoke</span>
+      </div>
+      <p class="lede">Run with <code>python manage.py test</code> — no Postgres needed.</p>
+    </section>
+
+    <section class="slide" data-title="Pipeline Compatibility">
+      <p class="kicker">Section 12 · Contract</p>
+      <h2>Built to feed the dashboard</h2>
+      <p class="lede"><code>data_pipeline/fetch_data.py</code> was verified live against this API:
+      register → product → sale → analytics, then a full pipeline fetch + analyze run.</p>
+      <ul class="tight">
+        <li>List responses use DRF pagination (<code>results</code> key), which the fetcher already unwraps — alongside bare lists and <code>data/items</code> wrappers.</li>
+        <li>Snake-case fields map onto Room columns (the fetcher is case/underscore-insensitive); line items additionally carry <code>transactionId</code> / <code>productId</code> aliases.</li>
+        <li>Timestamps serialize as ISO-8601, which the fetcher parses alongside epoch millis/seconds.</li>
+        <li>Point the pipeline at it with <code>SAJILO_API_URL=http://127.0.0.1:8000</code> + the store key.</li>
+      </ul>
+    </section>
+
+    <section class="slide" data-title="Roadmap">
+      <p class="kicker">Section 13 · Next</p>
+      <h2>Deliberately boring, ready to grow</h2>
+      <ul class="tight">
+        <li><b>Done:</b> auth, keys, isolation, catalog, ingest, listings, analytics, throttles, admin, tests, docs.</li>
+        <li><b>Next candidates:</b> webhook/API signature verification for payment callbacks, sale void + return endpoints, KOT print-job queue, per-store staff roles, Postgres-backed CI, request-id logging.</li>
+        <li><b>Non-goals:</b> realtime sockets, background workers — polling + idempotent ingest already cover the offline-first sync model.</li>
+      </ul>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <button id="prevBtn"><span aria-hidden="true">←</span><span><span id="prevLabel">Previous</span><small id="prevName"></small></span></button>
+  <div class="dots" id="dots"></div>
+  <button id="nextBtn"><span aria-hidden="true">→</span><span><span id="nextLabel">Next</span><small id="nextName"></small></span></button>
+</footer>
+<p class="hint" style="text-align:center;padding:0 0 10px;margin:0">Tip: use ← → keys or tap a section on the left</p>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var rail = document.getElementById('rail');
+  var dots = document.getElementById('dots');
+  var counter = document.getElementById('counter');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var prevLabel = document.getElementById('prevLabel');
+  var prevName = document.getElementById('prevName');
+  var nextLabel = document.getElementById('nextLabel');
+  var nextName = document.getElementById('nextName');
+  var idx = 0;
+
+  slides.forEach(function(s, i){
+    var title = s.getAttribute('data-title');
+    var b = document.createElement('button');
+    b.innerHTML = '<span class="n">' + (i+1) + '</span><span>' + title + '</span>';
+    b.addEventListener('click', function(){ go(i); });
+    rail.appendChild(b);
+    var d = document.createElement('button');
+    d.setAttribute('aria-label', 'Go to ' + title);
+    d.addEventListener('click', function(){ go(i); });
+    dots.appendChild(d);
+  });
+  var railBtns = Array.prototype.slice.call(rail.children);
+  var dotBtns = Array.prototype.slice.call(dots.children);
+
+  function go(i){
+    idx = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach(function(s, k){ s.classList.toggle('active', k === idx); });
+    railBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    dotBtns.forEach(function(b, k){ b.classList.toggle('active', k === idx); });
+    counter.textContent = (idx + 1) + ' / ' + slides.length;
+    var hasPrev = idx > 0, hasNext = idx < slides.length - 1;
+    prevBtn.disabled = !hasPrev;
+    nextBtn.disabled = !hasNext;
+    prevName.textContent = hasPrev ? slides[idx-1].getAttribute('data-title') : '';
+    nextName.textContent = hasNext ? slides[idx+1].getAttribute('data-title') : '';
+    document.getElementById('stage').scrollTop = 0;
+  }
+  prevBtn.addEventListener('click', function(){ go(idx - 1); });
+  nextBtn.addEventListener('click', function(){ go(idx + 1); });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') go(idx + 1);
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(idx - 1);
+    else if (e.key === 'Home') go(0);
+    else if (e.key === 'End') go(slides.length - 1);
+  });
+  var tx = null;
+  document.getElementById('stage').addEventListener('touchstart', function(e){ tx = e.touches[0].clientX; }, {passive:true});
+  document.getElementById('stage').addEventListener('touchend', function(e){
+    if (tx === null) return;
+    var dx = e.changedTouches[0].clientX - tx; tx = null;
+    if (dx < -60) go(idx + 1); else if (dx > 60) go(idx - 1);
+  }, {passive:true});
+  go(0);
+})();
+</script>
+</body>
+</html>

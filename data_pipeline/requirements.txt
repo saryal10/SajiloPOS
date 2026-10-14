@@ -1,0 +1,7 @@
+# SajiloPOS data pipeline dependencies.
+pandas>=2.0
+matplotlib>=3.8
+seaborn>=0.13
+streamlit>=1.32
+requests>=2.31
+python-dotenv>=1.0
